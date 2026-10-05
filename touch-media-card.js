@@ -1,5 +1,5 @@
 /**
- * Touch Media Card (touch-media-card.js) v1.0.0
+ * Touch Media Card (touch-media-card.js) v1.0.2
  * A touch-first media player card for Home Assistant, built from Bubble Card
  * widgets, with Music Assistant search and library browsing.
  * Author: Ryan Davies (PrimusNZ)
@@ -24,7 +24,7 @@
  * style [[[ ... ]]] templates.
  */
 (function () {
-  const VERSION = '1.0.0';
+  const VERSION = '1.0.2';
   const ACTIVE_STATES = ['playing', 'buffering'];
   const REPEAT_NEXT = {off: 'all', all: 'one', one: 'off'};
   const REPEAT_ICON = {off: 'mdi:repeat-off', all: 'mdi:repeat', one: 'mdi:repeat-once'};
@@ -1189,6 +1189,29 @@ button {
       this.paintProgress();
     }
 
+    // Milliseconds to add to this device's clock to get Home Assistant's
+    // clock. Kiosk clocks drift, and the position timestamp comes from the
+    // server, so without this two displays disagree by their clock error.
+    // Read from the Date header of a same-origin request (1 s resolution).
+    syncClock() {
+      const now = Date.now();
+      if (!(now - (this.clockAt || 0) > 600000)) return this.clockOffset || 0;
+      this.clockAt = now;
+      const sent = now;
+      fetch(location.origin + '/manifest.json', {method: 'HEAD', cache: 'no-store'})
+        .then(res => {
+          const server = Date.parse(res.headers.get('date'));
+          if (!isNaN(server)) {
+            const received = Date.now();
+            // The header is truncated to the second; add half a second back.
+            this.clockOffset = server + 500 - (sent + received) / 2;
+            this.progKey = '';
+          }
+        })
+        .catch(() => {});
+      return this.clockOffset || 0;
+    }
+
     // Position, length and whether seeking works for `player`, or null when
     // it reports no duration. media_position is only reported on state
     // changes, so it is anchored to the local clock and advanced from there.
@@ -1205,7 +1228,7 @@ button {
         let pos = Number(a.media_position) || 0;
         // Catch up for the time since Home Assistant stamped the position
         // (it is not refreshed while a track plays, so this can be minutes).
-        const age = (Date.now() - Date.parse(a.media_position_updated_at)) / 1000;
+        const age = (Date.now() + this.syncClock() - Date.parse(a.media_position_updated_at)) / 1000;
         if (playing && age > 0) pos += age;
         this.progAnchor = {pos, at: Date.now()};
       }
@@ -1555,7 +1578,7 @@ button {
         rows.push(row);
       };
       if (local) {
-        add(local, `This Device Â· ${this.playerName(local)}`, 'mdi:speaker',
+        add(local, `This Device · ${this.playerName(local)}`, 'mdi:speaker',
           this.mode === 'device', () => this.command('mode', {value: 'device'}));
       }
       if (bus) {
@@ -1677,7 +1700,7 @@ button {
       const list = root.getElementById('sheet-options');
       list.style.maxHeight = '60vh';
       list.style.overflowY = 'auto';
-      list.innerHTML = '<div class="message">Loadingâ€¦</div>';
+      list.innerHTML = '<div class="message">Loading…</div>';
       this.sheetOpenedAt = Date.now();
       root.getElementById('sheet').hidden = false;
       await this.loadQueue();
@@ -1767,7 +1790,7 @@ button {
       const left = Math.max(total - offset, items.length);
       const info = [`${left} ${left === 1 ? 'song' : 'songs'} left`,
         `Shuffle ${queue?.shuffle_enabled ? 'on' : 'off'}`,
-        `Repeat ${queue?.repeat_mode || 'off'}`].join(' Â· ');
+        `Repeat ${queue?.repeat_mode || 'off'}`].join(' · ');
       const rows = items.map((item, i) => {
         const index = offset + i;
         const media = item.media_item || {};
@@ -1800,7 +1823,7 @@ button {
           </div>`;
       }).join('');
       const more = left > items.length
-        ? `<div class="queue-info">â€¦and ${left - items.length} more</div>` : '';
+        ? `<div class="queue-info">…and ${left - items.length} more</div>` : '';
       return `<div class="queue-info">${escapeHtml(info)}</div>${rows}${more}`;
     }
 
@@ -1828,12 +1851,12 @@ button {
       };
       const info = [`${count} ${count === 1 ? 'item' : 'items'} in queue`,
         `Shuffle ${queue.shuffle_enabled ? 'on' : 'off'}`,
-        `Repeat ${queue.repeat_mode || 'off'}`].join(' Â· ');
+        `Repeat ${queue.repeat_mode || 'off'}`].join(' · ');
       return `
         <div class="queue-info">${escapeHtml(info)}</div>
         ${row(queue.current_item, 'Now playing', true)}
         ${row(queue.next_item, 'Up next', false)}
-        ${count > 2 ? `<div class="queue-info">â€¦and ${count - 2} more</div>` : ''}`;
+        ${count > 2 ? `<div class="queue-info">…and ${count - 2} more</div>` : ''}`;
     }
 
     // A tap on a row of the full queue: play it, move it, or take it out.
@@ -2039,7 +2062,7 @@ button {
       const results = root.getElementById('results');
       const token = ++this.browseToken;
       const tab = this.browseTab;
-      results.innerHTML = '<div class="message">Loadingâ€¦</div>';
+      results.innerHTML = '<div class="message">Loading…</div>';
       try {
         let items = [];
         if (tab === 'search') {
