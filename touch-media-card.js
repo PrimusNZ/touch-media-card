@@ -1,5 +1,5 @@
 /**
- * Touch Media Card (touch-media-card.js) v1.0.2
+ * Touch Media Card (touch-media-card.js) v1.0.4
  * A touch-first media player card for Home Assistant, built from Bubble Card
  * widgets, with Music Assistant search and library browsing.
  * Author: Ryan Davies (PrimusNZ)
@@ -24,7 +24,7 @@
  * style [[[ ... ]]] templates.
  */
 (function () {
-  const VERSION = '1.0.2';
+  const VERSION = '1.0.4';
   const ACTIVE_STATES = ['playing', 'buffering'];
   const REPEAT_NEXT = {off: 'all', all: 'one', one: 'off'};
   const REPEAT_ICON = {off: 'mdi:repeat-off', all: 'mdi:repeat', one: 'mdi:repeat-once'};
@@ -1198,7 +1198,7 @@ button {
       if (!(now - (this.clockAt || 0) > 600000)) return this.clockOffset || 0;
       this.clockAt = now;
       const sent = now;
-      fetch(location.origin + '/manifest.json', {method: 'HEAD', cache: 'no-store'})
+      fetch(location.origin + '/manifest.json', {cache: 'no-store'})
         .then(res => {
           const server = Date.parse(res.headers.get('date'));
           if (!isNaN(server)) {
@@ -1578,7 +1578,7 @@ button {
         rows.push(row);
       };
       if (local) {
-        add(local, `This Device · ${this.playerName(local)}`, 'mdi:speaker',
+        add(local, `This Device Â· ${this.playerName(local)}`, 'mdi:speaker',
           this.mode === 'device', () => this.command('mode', {value: 'device'}));
       }
       if (bus) {
@@ -1700,7 +1700,7 @@ button {
       const list = root.getElementById('sheet-options');
       list.style.maxHeight = '60vh';
       list.style.overflowY = 'auto';
-      list.innerHTML = '<div class="message">Loading…</div>';
+      list.innerHTML = '<div class="message">Loading...</div>';
       this.sheetOpenedAt = Date.now();
       root.getElementById('sheet').hidden = false;
       await this.loadQueue();
@@ -1790,7 +1790,7 @@ button {
       const left = Math.max(total - offset, items.length);
       const info = [`${left} ${left === 1 ? 'song' : 'songs'} left`,
         `Shuffle ${queue?.shuffle_enabled ? 'on' : 'off'}`,
-        `Repeat ${queue?.repeat_mode || 'off'}`].join(' · ');
+        `Repeat ${queue?.repeat_mode || 'off'}`].join(' Â· ');
       const rows = items.map((item, i) => {
         const index = offset + i;
         const media = item.media_item || {};
@@ -1823,7 +1823,7 @@ button {
           </div>`;
       }).join('');
       const more = left > items.length
-        ? `<div class="queue-info">…and ${left - items.length} more</div>` : '';
+        ? `<div class="queue-info">...and ${left - items.length} more</div>` : '';
       return `<div class="queue-info">${escapeHtml(info)}</div>${rows}${more}`;
     }
 
@@ -1851,12 +1851,12 @@ button {
       };
       const info = [`${count} ${count === 1 ? 'item' : 'items'} in queue`,
         `Shuffle ${queue.shuffle_enabled ? 'on' : 'off'}`,
-        `Repeat ${queue.repeat_mode || 'off'}`].join(' · ');
+        `Repeat ${queue.repeat_mode || 'off'}`].join(' Â· ');
       return `
         <div class="queue-info">${escapeHtml(info)}</div>
         ${row(queue.current_item, 'Now playing', true)}
         ${row(queue.next_item, 'Up next', false)}
-        ${count > 2 ? `<div class="queue-info">…and ${count - 2} more</div>` : ''}`;
+        ${count > 2 ? `<div class="queue-info">...and ${count - 2} more</div>` : ''}`;
     }
 
     // A tap on a row of the full queue: play it, move it, or take it out.
@@ -2062,7 +2062,7 @@ button {
       const results = root.getElementById('results');
       const token = ++this.browseToken;
       const tab = this.browseTab;
-      results.innerHTML = '<div class="message">Loading…</div>';
+      results.innerHTML = '<div class="message">Loading...</div>';
       try {
         let items = [];
         if (tab === 'search') {
