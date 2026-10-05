@@ -1,5 +1,5 @@
 /**
- * Touch Media Card (touch-media-card.js) v1.0.4
+ * Touch Media Card (touch-media-card.js) v1.0.6
  * A touch-first media player card for Home Assistant, built from Bubble Card
  * widgets, with Music Assistant search and library browsing.
  * Author: Ryan Davies (PrimusNZ)
@@ -24,7 +24,7 @@
  * style [[[ ... ]]] templates.
  */
 (function () {
-  const VERSION = '1.0.4';
+  const VERSION = '1.0.6';
   const ACTIVE_STATES = ['playing', 'buffering'];
   const REPEAT_NEXT = {off: 'all', all: 'one', one: 'off'};
   const REPEAT_ICON = {off: 'mdi:repeat-off', all: 'mdi:repeat', one: 'mdi:repeat-once'};
@@ -1475,12 +1475,15 @@ button {
       }
       const wrap = document.createElement('div');
       wrap.className = `row ${cls}`;
-      const cells = buttons.map(({config, onTap}, index) => {
+      const cells = buttons.map(({config, onTap, join}, index) => {
         const card = helpers.createCardElement(config);
         card.hass = hass;
         this.cards[`${slot}-${index}`] = card;
         const el = document.createElement('div');
         el.className = 'tap';
+        // A joined button sits 2px from its left neighbour instead of the
+        // row's gap.
+        if (join) el.style.marginLeft = 'calc(2px - var(--ktm-gap))';
         const cell = {el, card, onTap, sig: JSON.stringify(config)};
         this.bindTap(el, () => cell.onTap());
         el.append(card);
@@ -1506,15 +1509,27 @@ button {
 
       const playing = stateObj?.state === 'playing';
       const repeat = a.repeat || 'off';
+      // Previous, Play/Pause and Next meet in the middle, as do Shuffle and
+      // Repeat; Stop stands alone. `join` pulls a button up to its left neighbour.
+      const joined = (button, left, right) => {
+        if (right) button.config.styles += SQUARE_RIGHT_STYLE;
+        if (left) {
+          button.config.styles += SQUARE_LEFT_STYLE;
+          button.join = true;
+        }
+        return button;
+      };
       const transport = stateObj ? [
-        this.button('Shuffle', a.shuffle ? 'mdi:shuffle' : 'mdi:shuffle-disabled',
-          cmd('shuffle'), !!a.shuffle),
-        this.button('Previous', 'mdi:skip-previous', perform('media_previous_track')),
-        this.button(playing ? 'Pause' : 'Play', playing ? 'mdi:pause' : 'mdi:play',
-          perform('media_play_pause'), playing),
-        this.button('Next', 'mdi:skip-next', perform('media_next_track')),
+        joined(this.button('Previous', 'mdi:skip-previous', perform('media_previous_track')),
+          false, true),
+        joined(this.button(playing ? 'Pause' : 'Play', playing ? 'mdi:pause' : 'mdi:play',
+          perform('media_play_pause'), playing), true, true),
+        joined(this.button('Next', 'mdi:skip-next', perform('media_next_track')), true, false),
         this.button('Stop', 'mdi:stop', cmd('stop')),
-        this.button('Repeat', REPEAT_ICON[repeat] || 'mdi:repeat', cmd('repeat'), repeat !== 'off')
+        joined(this.button('Shuffle', a.shuffle ? 'mdi:shuffle' : 'mdi:shuffle-disabled',
+          cmd('shuffle'), !!a.shuffle), false, true),
+        joined(this.button('Repeat', REPEAT_ICON[repeat] || 'mdi:repeat', cmd('repeat'),
+          repeat !== 'off'), true, false)
       ] : [];
       // One button opens the browser; its own tabs cover search, playlists,
       // radio and the rest.
