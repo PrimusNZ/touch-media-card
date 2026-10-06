@@ -22,6 +22,7 @@ A touch-first media player card for Home Assistant, made for wall tablets and ki
 - Queue sheet (tap the song info): play, reorder or remove items, or clear the queue.
 - Player sheet: switch between this display's player, an optional priority player and other players, and move the queue between them.
 - Optional auto-switch: when the priority player (for example a whole-home audio group) starts playing, the card shows it.
+- Optional glass look, off by default (set `glass: true`).
 
 <br>
 
@@ -106,6 +107,7 @@ discover: true
 | `ma_token` | string | Optional | none | A Music Assistant API token. |
 | `template` | string or list | Optional | none | Name(s) of button-card templates in this dashboard, used as the source of `variables`. See [Templates](#templates). |
 | `variables` | object | Optional | none | Variables for use in templates. They override those from `template`. |
+| `glass` | boolean | Optional | `false` | Set `true` for the glass look: a translucent surface and rim on the card's tiles, and a sheen on the progress and volume fills, highlighted buttons, selected player, artwork and thumbnails. |
 
 If neither `entity_id` nor a usable `priority_player` is set, the card shows the first available player (preferring one that is playing) until you pick another.
 
