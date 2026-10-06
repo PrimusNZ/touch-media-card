@@ -1,5 +1,5 @@
 /**
- * Touch Media Card (touch-media-card.js) v1.0.6
+ * Touch Media Card (touch-media-card.js) v1.1.0
  * A touch-first media player card for Home Assistant, built from Bubble Card
  * widgets, with Music Assistant search and library browsing.
  * Author: Ryan Davies (PrimusNZ)
@@ -19,12 +19,17 @@
  * and, for browsing and queue moves, the Music Assistant integration.
  *
  * Card options: entity_id, priority_player, priority_name, discover,
- * media_players, config_entry_id, ma_url, ma_token, template, variables.
+ * media_players, config_entry_id, ma_url, ma_token, template, variables, glass.
  * entity_id, priority_player and media_players entries may be button-card
  * style [[[ ... ]]] templates.
+ *
+ * Glass: off by default. Set `glass: true` for the glass look (a translucent
+ * glass surface and rim on its tiles, plus a sheen on its progress fill,
+ * volume fill, highlighted buttons, selected player, album art and
+ * thumbnails).
  */
 (function () {
-  const VERSION = '1.0.6';
+  const VERSION = '1.1.0';
   const ACTIVE_STATES = ['playing', 'buffering'];
   const REPEAT_NEXT = {off: 'all', all: 'one', one: 'off'};
   const REPEAT_ICON = {off: 'mdi:repeat-off', all: 'mdi:repeat', one: 'mdi:repeat-once'};
@@ -34,8 +39,10 @@
   // Most items listed in the full queue view.
   const QUEUE_LIMIT = 100;
   // Longest the track info shows its spinner after a song is picked, in case
-  // the title never changes (e.g. the same song again).
+  // the title never changes (e.g. the same song again), and after any other
+  // action, in case the player never reports a change (e.g. Next at the end).
   const TRACK_WAIT_MS = 12000;
+  const ACTION_WAIT_MS = 6000;
   // Height of one entry in the player sheet.
   const SHEET_ROW_PX = 56;
 
@@ -50,6 +57,9 @@
       --ktm-text-secondary: var(--kiosk-text-secondary, var(--secondary-text-color, #9b9b9b));
       --ktm-background: var(--kiosk-background, var(--lovelace-background, var(--primary-background-color, #111)));
       --ktm-viewport-height: var(--kiosk-viewport-content-height, 100%);
+      --ktm-sheen: none;
+      --ktm-sheen-edge: none;
+      --ktm-bubble-surface: var(--ktm-surface);
     }`;
   const BASE_STYLE = `
 :host {
@@ -551,15 +561,57 @@ button {
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
   })[ch]);
 
+  // Glass effect, on while the host has the `glass` attribute (only when
+  // the card is set to `glass: true`; see setConfig()): the glass surface
+  // and rim for every tile, the sheen tokens that the progress fill, the
+  // volume fill and highlighted buttons read, a flat see-through fill for Bubble Card's
+  // buttons and slider (they paint with background-color, which cannot take
+  // the surface gradient), and overlays on the artwork and thumbnails.
+  const GLASS_STYLE = `
+    :host([glass]) {
+      --ktm-surface: linear-gradient(135deg,
+        rgba(255, 255, 255, 0.10) 0%, rgba(255, 255, 255, 0.045) 38%,
+        rgba(255, 255, 255, 0.022) 68%, rgba(255, 255, 255, 0.06) 100%);
+      --ktm-surface-edge: inset 0 0 0 1px rgba(255, 255, 255, 0.10),
+        inset 0 1px 0 rgba(255, 255, 255, 0.18), inset 0 -1px 0 rgba(0, 0, 0, 0.16),
+        0 3px 8px rgba(0, 0, 0, 0.22);
+      --ktm-sheen: linear-gradient(180deg,
+        rgba(255, 255, 255, 0.30) 0%, rgba(255, 255, 255, 0.08) 50%, rgba(0, 0, 0, 0.14) 100%);
+      --ktm-sheen-edge: inset 0 1px 0 rgba(255, 255, 255, 0.35), inset 0 -1px 0 rgba(0, 0, 0, 0.18);
+      --ktm-bubble-surface: rgba(255, 255, 255, 0.06);
+    }
+    :host([glass]) .sheet-row { box-shadow: var(--ktm-surface-edge); }
+    :host([glass]) .sheet-row.selected { background-image: var(--ktm-sheen); box-shadow: var(--ktm-sheen-edge); }
+    :host([glass]) .queue-row.current, :host([glass]) .queue-item.current { box-shadow: var(--ktm-surface-edge); }
+    :host([glass]) .thumb { position: relative; }
+    :host([glass]) .art::after {
+      content: ''; position: absolute; top: 50%; left: 50%;
+      width: min(100cqw, 100cqh); height: min(100cqw, 100cqh);
+      transform: translate(-50%, -50%); border-radius: 12px; pointer-events: none;
+      background: linear-gradient(135deg,
+        rgba(255, 255, 255, 0.22) 0%, rgba(255, 255, 255, 0.05) 35%,
+        rgba(255, 255, 255, 0) 60%, rgba(255, 255, 255, 0.08) 100%);
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14),
+        inset 0 1px 0 rgba(255, 255, 255, 0.30), inset 0 -1px 0 rgba(0, 0, 0, 0.22);
+    }
+    :host([glass]) .thumb::after {
+      content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+      background: linear-gradient(135deg,
+        rgba(255, 255, 255, 0.22) 0%, rgba(255, 255, 255, 0.05) 35%,
+        rgba(255, 255, 255, 0) 60%, rgba(255, 255, 255, 0.08) 100%);
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14),
+        inset 0 1px 0 rgba(255, 255, 255, 0.30), inset 0 -1px 0 rgba(0, 0, 0, 0.22);
+    }`;
+
   // Extra styles for the card host: the colour tokens handed to Bubble Card
   // (its variables inherit into every Bubble Card inside this card), then the
   // queue sheet rows and the track-change spinner. The sheet itself is styled
   // in the stylesheet.
   const QUEUE_STYLE = `
     :host {
-      --bubble-main-background-color: var(--ktm-surface);
-      --bubble-secondary-background-color: var(--ktm-surface);
-      --bubble-button-main-background-color: var(--ktm-surface);
+      --bubble-main-background-color: var(--ktm-bubble-surface);
+      --bubble-secondary-background-color: var(--ktm-bubble-surface);
+      --bubble-button-main-background-color: var(--ktm-bubble-surface);
       --bubble-box-shadow: var(--ktm-surface-edge);
       --bubble-accent-color: var(--ktm-accent);
       --bubble-button-accent-color: var(--ktm-accent);
@@ -583,7 +635,10 @@ button {
       border-radius: 999px; background: var(--ktm-surface); box-shadow: var(--ktm-surface-edge);
       touch-action: none; cursor: pointer; user-select: none; -webkit-user-select: none;
     }
-    .prog-fill { position: absolute; inset: 0 auto 0 0; width: 0; background-color: var(--ktm-accent); }
+    .prog-fill {
+      position: absolute; inset: 0 auto 0 0; width: 0; background-color: var(--ktm-accent);
+      background-image: var(--ktm-sheen); box-shadow: var(--ktm-sheen-edge);
+    }
     .prog.off .prog-track, .prog.ro .prog-track { cursor: default; }
     .prog.off { opacity: 0.45; }
     .now.tappable { cursor: pointer; touch-action: manipulation; }
@@ -609,7 +664,9 @@ button {
       padding: 8px; border-radius: var(--ktm-radius); background: var(--ktm-surface);
       box-shadow: var(--ktm-surface-edge);
     }
-    .queue-item.current { box-shadow: inset 0 0 0 2px var(--ktm-accent); }
+    .queue-item.current { background: var(--ktm-accent); box-shadow: none; color: #fff; }
+    .queue-item.current .item-name, .queue-item.current .queue-label { color: #fff; }
+    .queue-item.current .item-sub { color: rgba(255, 255, 255, 0.8); }
     .queue-label {
       font-size: 11px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase;
       color: var(--ktm-accent);
@@ -619,10 +676,12 @@ button {
       min-height: 60px; padding: 4px 4px 4px 8px; border-radius: var(--ktm-radius);
       background: var(--ktm-surface); box-shadow: var(--ktm-surface-edge);
     }
-    .queue-row.current { box-shadow: inset 0 0 0 2px var(--ktm-accent); }
+    .queue-row.current { background: var(--ktm-accent); box-shadow: none; color: #fff; }
     .queue-row .thumb { width: 48px; height: 48px; }
     .queue-pos { text-align: center; font-size: 13px; color: var(--ktm-text-secondary); }
-    .queue-row.current .queue-pos { color: var(--ktm-accent); }
+    .queue-row.current .queue-pos, .queue-row.current .item-name { color: #fff; }
+    .queue-row.current .item-sub { color: rgba(255, 255, 255, 0.8); }
+    .queue-row.current .queue-actions button { color: rgba(255, 255, 255, 0.85); }
     .queue-row .queue-main {
       min-width: 0; min-height: 48px; display: grid; gap: 2px; align-content: center;
       text-align: left; background: transparent;
@@ -650,7 +709,10 @@ button {
   // The volume slider: filled with the accent colour, icon disc and text in
   // the theme colours.
   const SLIDER_STYLE = `
-    .bubble-range-fill { background-color: var(--ktm-accent) !important; opacity: 1 !important; }
+    .bubble-range-fill {
+      background-color: var(--ktm-accent) !important; opacity: 1 !important;
+      background-image: var(--ktm-sheen, none) !important; box-shadow: var(--ktm-sheen-edge, none) !important;
+    }
     .bubble-icon-container, .bubble-main-icon-container {
       background-color: rgba(0, 0, 0, 0.34) !important;
     }
@@ -693,7 +755,10 @@ button {
     }`;
   const HIDE_LABEL_STYLE = `.bubble-name-container { display: none !important; }`;
   const ACTIVE_STYLE = `
-    .bubble-button-background { background-color: var(--ktm-accent, var(--accent-color)) !important; opacity: 1 !important; }
+    .bubble-button-background {
+      background-color: var(--ktm-accent, var(--accent-color)) !important; opacity: 1 !important;
+      background-image: var(--ktm-sheen, none) !important; box-shadow: var(--ktm-sheen-edge, none) !important;
+    }
     .bubble-icon-container, .bubble-main-icon-container {
       background-color: rgba(0, 0, 0, 0.34) !important;
       box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.6) !important;
@@ -733,8 +798,8 @@ button {
       // while it is closed).
       this.sheetKind = null;
       this.queueToken = 0;
-      // Set while the track info shows its spinner after a song was picked
-      // from the queue: {title, player, timer}.
+      // Set while the track info shows its spinner after an action:
+      // {sig, player, timer}.
       this.pendingTrack = null;
       this.configEntryId = null;
       this.muteMembers = null;
@@ -756,6 +821,7 @@ button {
         throw new Error('touch-media-card: media_players must list at least one player when discover is false.');
       }
       this.config = config;
+      this.syncGlass();
       this.renderShell();
       this.sync(true);
     }
@@ -846,7 +912,13 @@ button {
       this.sync();
     }
 
+    // The glass look is off unless the config says `glass: true`.
+    syncGlass() {
+      this.toggleAttribute('glass', this.config?.glass === true);
+    }
+
     connectedCallback() {
+      this.syncGlass();
       this.progTimer = setInterval(() => {
         if (!document.hidden && !this.progDrag) this.updateProgress(this.player);
       }, 1000);
@@ -872,7 +944,7 @@ button {
     renderShell() {
       if (this.shadowRoot.childElementCount) return;
       this.shadowRoot.innerHTML = `
-        <style>${TOKEN_STYLE}${BASE_STYLE}${QUEUE_STYLE}</style>
+        <style>${TOKEN_STYLE}${BASE_STYLE}${QUEUE_STYLE}${GLASS_STYLE}</style>
         <div class="shell">
           <div class="art-panel">
             <div class="art" id="art"><ha-icon icon="mdi:music"></ha-icon></div>
@@ -1049,6 +1121,12 @@ button {
 
       const player = this.mode === 'bus' ? busPlayer
         : this.mode === 'other' ? this.otherPlayer : localPlayer;
+      // The player changed state (or another player was picked), so the
+      // spinner has done its job.
+      if (this.pendingTrack && (player !== this.pendingTrack.player ||
+          this.actionSignature(player) !== this.pendingTrack.sig)) {
+        this.endTrackWait();
+      }
       this.updateArt(player);
       this.updateNowPlaying(player);
       this.updateProgress(player);
@@ -1297,11 +1375,6 @@ button {
         ? [stateObj.state, a.media_title, a.media_artist, a.media_album_name].join('|') : 'none';
       if (holder.dataset.key === key) return;
       holder.dataset.key = key;
-      // The song (or the player) changed, so the spinner has done its job.
-      if (this.pendingTrack && (player !== this.pendingTrack.player ||
-          a.media_title !== this.pendingTrack.title)) {
-        this.endTrackWait();
-      }
       // The track changed, so an open queue sheet is out of date.
       if (this.sheetKind === 'queue' && !this.shadowRoot.getElementById('sheet').hidden) {
         void this.loadQueue();
@@ -1326,14 +1399,24 @@ button {
         </div>`;
     }
 
-    // Shows a spinner over the track info until the song changes (or
-    // TRACK_WAIT_MS passes), after a song was picked from the queue.
-    startTrackWait() {
+    // What an action can change on a player: its state, song, shuffle,
+    // repeat and mute.
+    actionSignature(player) {
+      const stateObj = this._hass?.states[player];
+      const a = stateObj?.attributes || {};
+      return [stateObj?.state, a.media_title, a.media_artist, a.shuffle, a.repeat,
+        player === this.player ? this.muteInfo().muted : a.is_volume_muted].join('|');
+    }
+
+    // Shows a spinner over the track info after an action, until the player
+    // reports a change (or `ms` passes). Used for every action that changes
+    // the player: transport buttons, shuffle, repeat, mute, picking a song.
+    startTrackWait(ms = TRACK_WAIT_MS) {
       this.endTrackWait();
       this.pendingTrack = {
-        title: this._hass?.states[this.player]?.attributes?.media_title,
+        sig: this.actionSignature(this.player),
         player: this.player,
-        timer: setTimeout(() => this.endTrackWait(), TRACK_WAIT_MS)
+        timer: setTimeout(() => this.endTrackWait(), ms)
       };
       this.shadowRoot.getElementById('now-playing')?.classList.add('loading');
     }
@@ -1411,9 +1494,12 @@ button {
       const hass = this._hass;
       const info = this.muteInfo();
       if (!this.player || !hass?.states[this.player]) return;
+      this.startTrackWait(ACTION_WAIT_MS);
       hass.callService('media_player', 'volume_mute',
-        {entity_id: info.entities, is_volume_muted: !info.muted}).catch(error =>
-        console.warn('[Touch Media Card] media_player.volume_mute failed.', error));
+        {entity_id: info.entities, is_volume_muted: !info.muted}).catch(error => {
+        this.endTrackWait();
+        console.warn('[Touch Media Card] media_player.volume_mute failed.', error);
+      });
     }
 
     // Returns a Bubble Card button config plus the handler run when it is
@@ -1636,9 +1722,11 @@ button {
           const row = document.createElement('div');
           // One fixed-height pill behind both halves (accent when it is the
           // shown player).
+          row.className = option.selected ? 'sheet-row selected' : 'sheet-row';
           row.style.cssText = `display:flex;align-items:stretch;overflow:hidden;flex:0 0 auto;` +
-            `height:${SHEET_ROW_PX}px;border-radius:${SHEET_ROW_PX / 2}px;background:` +
-            (option.selected ? 'var(--ktm-accent, var(--accent-color))' : 'var(--ktm-surface)') + ';';
+            `height:${SHEET_ROW_PX}px;border-radius:${SHEET_ROW_PX / 2}px;` +
+            (option.selected ? 'background-color:var(--ktm-accent, var(--accent-color));'
+              : 'background:var(--ktm-surface);');
           const select = cellFor(option.select);
           select.style.flex = '1 1 0';
           select.style.minWidth = '0';
@@ -1973,19 +2061,27 @@ button {
       const stateObj = hass?.states[this.player];
       const a = stateObj?.attributes || {};
       const call = (service, data = {}) => hass.callService('media_player', service,
-        {entity_id: this.player, ...data}).catch(error =>
-        console.warn(`[Touch Media Card] media_player.${service} failed.`, error));
+        {entity_id: this.player, ...data}).catch(error => {
+        this.endTrackWait();
+        console.warn(`[Touch Media Card] media_player.${service} failed.`, error);
+      });
       switch (name) {
         case 'media_previous_track':
         case 'media_play_pause':
         case 'media_next_track':
         case 'media_stop':
-          if (stateObj) call(name);
+          if (stateObj) {
+            this.startTrackWait(ACTION_WAIT_MS);
+            call(name);
+          }
           break;
         case 'stop':
           // Stop also empties the queue of the selected player (for Whole Bus,
           // the group's shared queue).
-          if (stateObj) call('media_stop').then(() => call('clear_playlist'));
+          if (stateObj) {
+            this.startTrackWait(ACTION_WAIT_MS);
+            call('media_stop').then(() => call('clear_playlist'));
+          }
           break;
         case 'mode':
           if (detail.value === 'device' && !this.localPlayer()) return;
@@ -1997,10 +2093,16 @@ button {
           this.sync(true);
           break;
         case 'shuffle':
-          if (stateObj) call('shuffle_set', {shuffle: !a.shuffle});
+          if (stateObj) {
+            this.startTrackWait(ACTION_WAIT_MS);
+            call('shuffle_set', {shuffle: !a.shuffle});
+          }
           break;
         case 'repeat':
-          if (stateObj) call('repeat_set', {repeat: REPEAT_NEXT[a.repeat || 'off'] || 'off'});
+          if (stateObj) {
+            this.startTrackWait(ACTION_WAIT_MS);
+            call('repeat_set', {repeat: REPEAT_NEXT[a.repeat || 'off'] || 'off'});
+          }
           break;
         case 'browse':
           this.openBrowser(detail.tab);
@@ -2139,12 +2241,16 @@ button {
       // Single songs play now and keep the queue; collections and radio
       // replace it so the choice starts straight away.
       const mode = enqueue === 'add' ? 'add' : (mediaType === 'track' ? 'play' : 'replace');
+      // Playing something new spins the track info until the song changes;
+      // adding to the queue changes nothing the player reports, so no spinner.
+      if (mode !== 'add') this.startTrackWait();
       try {
         await this._hass.callService('music_assistant', 'play_media', {
           media_id: uri, media_type: mediaType, enqueue: mode
         }, {entity_id: this.player});
         if (mode !== 'add') this.closeBrowser();
       } catch (error) {
+        this.endTrackWait();
         console.warn('[Touch Media Card] Could not play media.', error);
       }
     }
@@ -2161,3 +2267,4 @@ button {
     });
   }
 })();
+
