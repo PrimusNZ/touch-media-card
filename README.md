@@ -41,7 +41,7 @@ A touch-first media player card for Home Assistant, made for wall tablets and ki
 | <img src="assets/landscape-queue.png" alt="Queue"><br>**Queue** | <img src="assets/landscape-browse-search.png" alt="Browse music: search"><br>**Browse music: search** |
 | <img src="assets/landscape-browse-albums.png" alt="Browse music: albums"><br>**Browse music: albums** | <img src="assets/landscape-glass-off.png" alt="Glass off"><br>**Glass off** |
 | <img src="assets/landscape-paused-muted.png" alt="Paused and muted"><br>**Paused and muted** | <img src="assets/landscape-nothing-playing.png" alt="Nothing playing"><br>**Nothing playing** |
-| <img src="assets/landscape-volume-always.png" alt="Volume % always shown"><br>**Volume % always shown** |  |
+| <img src="assets/landscape-volume-always.png" alt="Volume % always shown"><br>**Volume % always shown** | <img src="assets/landscape-volume-horizontal.png" alt="Horizontal volume bar"><br>**Horizontal volume bar** |
 
 ### Portrait
 
@@ -50,6 +50,7 @@ A touch-first media player card for Home Assistant, made for wall tablets and ki
 | <img src="assets/portrait-now-playing.png" alt="Now playing"><br>**Now playing** | <img src="assets/portrait-player-picker.png" alt="Player picker"><br>**Player picker** | <img src="assets/portrait-queue.png" alt="Queue"><br>**Queue** |
 | <img src="assets/portrait-browse-search.png" alt="Browse music: search"><br>**Browse music: search** | <img src="assets/portrait-browse-albums.png" alt="Browse music: albums"><br>**Browse music: albums** | <img src="assets/portrait-glass-off.png" alt="Glass off"><br>**Glass off** |
 | <img src="assets/portrait-paused-muted.png" alt="Paused and muted"><br>**Paused and muted** | <img src="assets/portrait-nothing-playing.png" alt="Nothing playing"><br>**Nothing playing** | <img src="assets/portrait-volume-always.png" alt="Volume % always shown"><br>**Volume % always shown** |
+| <img src="assets/portrait-volume-horizontal.png" alt="Horizontal volume bar"><br>**Horizontal volume bar** |  |  |
 
 <br>
 
@@ -136,6 +137,7 @@ discover: true
 | `variables` | object | Optional | none | Variables for use in templates. They override those from `template`. |
 | `glass` | boolean | Optional | `true` | The glass look: a translucent surface and rim on the card's tiles, and a sheen on the progress and volume fills, highlighted buttons, selected player, artwork and thumbnails. Set `false` for flat tiles. |
 | `always_show_volume` | boolean | Optional | `false` | Keep the volume percentage on the volume bar all the time. By default it shows while you drag the bar and fades five seconds after the level last changes. |
+| `horizontal_volume` | boolean | Optional | `false` | Move the volume bar to the bottom of the card, full width, running left to right with the mute button at its left end. By default it is a vertical bar on the right. |
 
 If neither `entity_id` nor a usable `priority_player` is set, the card shows the first available player (preferring one that is playing) until you pick another.
 

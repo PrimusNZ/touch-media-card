@@ -14,7 +14,7 @@
  *
  * Card options: entity_id, priority_player, priority_name, discover,
  * media_players, config_entry_id, ma_url, ma_token, template, variables, glass,
- * always_show_volume.
+ * always_show_volume, horizontal_volume.
  * entity_id, priority_player and media_players entries may be button-card
  * style [[[ ... ]]] templates.
  *
@@ -42,6 +42,8 @@
   const SHEET_ROW_PX = 56;
   // Height of the mute button at the bottom of the volume bar.
   const VOL_MUTE_PX = 64;
+  // Thickness of the volume bar: its width, or its height with horizontal_volume.
+  const VOL_BAR_PX = 32;
 
   // Colour tokens: the Kiosk dashboard's --kiosk-* variables when present,
   // otherwise the Home Assistant theme.
@@ -79,7 +81,7 @@
   position: relative;
   box-sizing: border-box;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 64px;
+  grid-template-columns: minmax(0, 1fr) ${VOL_BAR_PX}px;
   gap: var(--ktm-gap);
   width: 100%;
   height: 100%;
@@ -727,16 +729,28 @@ button {
     }
     .vol-pct {
       position: absolute; top: 10px; left: 0; right: 0; z-index: 1; text-align: center;
-      font-size: 15px; font-weight: 700; color: #fff; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
+      font-size: 12px; font-weight: 700; color: #fff; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
       opacity: 0; transition: opacity 0.2s; pointer-events: none;
     }
     .vol-pct.show { opacity: 1; }
+    .vol-hit { left: 0; right: 0; bottom: 0; height: ${VOL_MUTE_PX}px; }
+    :host([hvol]) .vol-hit { right: auto; top: 0; width: ${VOL_MUTE_PX}px; height: auto; }
     .vol-icon {
-      position: absolute; left: 50%; bottom: 13px; width: 38px; height: 38px; margin-left: -19px;
+      position: absolute; left: 50%; bottom: ${(VOL_MUTE_PX - 26) / 2}px; width: 26px; height: 26px; margin-left: -13px;
       border-radius: 50%; display: grid; place-items: center; background: rgba(0, 0, 0, 0.34);
       pointer-events: none;
     }
-    .vol-icon ha-icon { --mdc-icon-size: 24px; color: var(--ktm-text-primary, #fff); }
+    .vol-icon ha-icon { --mdc-icon-size: 18px; color: var(--ktm-text-primary, #fff); }
+    /* horizontal_volume: the bar runs along the bottom, left to right, with
+       the mute button at its left end. */
+    :host([hvol]) .shell {
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-rows: minmax(0, 1fr) ${VOL_BAR_PX}px;
+    }
+    :host([hvol]) #volume { height: ${VOL_BAR_PX}px; }
+    :host([hvol]) .vol-fill { inset: 0 auto 0 0; height: auto; width: ${VOL_MUTE_PX}px; }
+    :host([hvol]) .vol-pct { font-size: 15px; top: 50%; left: auto; right: 16px; width: auto; transform: translateY(-50%); }
+    :host([hvol]) .vol-icon { left: 13px; bottom: auto; top: 50%; margin: -13px 0 0; }
     /* Narrow (phone) width: in the Browse music / player picker row the icon
        sits above the label, smaller, so the label is not cut off. */
     @container (max-width: 480px) {
@@ -795,6 +809,7 @@ button {
       this.config = config;
       this.syncGlass();
       this.renderShell();
+      this.toggleAttribute('hvol', config.horizontal_volume === true);
       // Redraw the volume so a changed always_show_volume takes effect.
       this.volPaint = '';
       if (!config.always_show_volume) {
@@ -1453,8 +1468,11 @@ button {
         // The strip at the bottom is the mute button; the level runs from its
         // top edge to the top of the bar.
         const rect = vol.getBoundingClientRect();
-        const span = rect.height - VOL_MUTE_PX;
-        const ratio = span > 0 ? (rect.bottom - VOL_MUTE_PX - event.clientY) / span : 0;
+        const horizontal = this.hasAttribute('hvol');
+        const span = (horizontal ? rect.width : rect.height) - VOL_MUTE_PX;
+        const ratio = span <= 0 ? 0 : horizontal
+          ? (event.clientX - rect.left - VOL_MUTE_PX) / span
+          : (rect.bottom - VOL_MUTE_PX - event.clientY) / span;
         return Math.min(1, Math.max(0, ratio));
       };
       let sentAt = 0;
@@ -1493,7 +1511,8 @@ button {
       vol.addEventListener('pointercancel', event => finish(event, false));
       vol.addEventListener('click', event => event.stopPropagation());
       const hit = document.createElement('div');
-      hit.style.cssText = 'position:absolute;left:0;right:0;bottom:0;height:' + VOL_MUTE_PX + 'px;z-index:2;cursor:pointer;touch-action:manipulation;';
+      hit.className = 'vol-hit';
+      hit.style.cssText = 'position:absolute;z-index:2;cursor:pointer;touch-action:manipulation;';
       this.bindTap(hit, () => this.toggleMute());
       holder.append(hit);
     }
@@ -1519,7 +1538,7 @@ button {
         else root.getElementById('vol-pct').classList.remove('show');
       } else if (this.volPct !== undefined && pct !== this.volPct) this.flashVolume(pct, false);
       this.volPct = pct;
-      root.getElementById('vol-fill').style.height =
+      root.getElementById('vol-fill').style[this.hasAttribute('hvol') ? 'width' : 'height'] =
         `calc(${VOL_MUTE_PX}px + (100% - ${VOL_MUTE_PX}px) * ${level.toFixed(3)})`;
       const icon = root.getElementById('vol-icon');
       // Muted: crossed-out speaker; otherwise the icon follows the level.
@@ -2281,6 +2300,7 @@ button {
     media_players: 'Players to offer',
     glass: 'Glass look',
     always_show_volume: 'Always show the volume %',
+    horizontal_volume: 'Horizontal volume bar',
     config_entry_id: 'Music Assistant config entry ID',
     ma_url: 'Music Assistant server address',
     ma_token: 'Music Assistant API token'
@@ -2291,6 +2311,7 @@ button {
     priority_name: 'Label for the priority player. Leave empty to use its own name.',
     discover: 'Turn off to list only the players you pick below.',
     always_show_volume: 'Keep the volume percentage on the volume bar instead of fading it out.',
+    horizontal_volume: 'Put the volume bar along the bottom, full width, running left to right.',
     ma_url: 'Needed for the full queue view, e.g. http://192.168.1.10:8095',
     ma_token: 'Music Assistant API token (stored in the dashboard config).',
     config_entry_id: 'Only needed if it cannot be found automatically.'
@@ -2298,7 +2319,7 @@ button {
   // Options this editor manages; anything else in the config (type, template,
   // variables, ...) is passed through untouched.
   const EDITOR_KEYS = ['entity_id', 'priority_player', 'priority_name', 'discover',
-    'media_players', 'glass', 'always_show_volume', 'config_entry_id', 'ma_url', 'ma_token'];
+    'media_players', 'glass', 'always_show_volume', 'horizontal_volume', 'config_entry_id', 'ma_url', 'ma_token'];
 
   class TouchMediaCardEditor extends HTMLElement {
     setConfig(config) {
@@ -2330,6 +2351,7 @@ button {
           selector: {entity: {domain: 'media_player', multiple: true}}}]),
         {name: 'glass', selector: {boolean: {}}},
         {name: 'always_show_volume', selector: {boolean: {}}},
+        {name: 'horizontal_volume', selector: {boolean: {}}},
         {type: 'expandable', name: '', title: 'Music Assistant (queue view and browsing)',
           schema: [
             {name: 'ma_url', selector: {text: {}}},
@@ -2356,7 +2378,8 @@ button {
         ...this._config,
         discover: this._config.discover !== false,
         glass: this._config.glass !== false,
-        always_show_volume: this._config.always_show_volume === true
+        always_show_volume: this._config.always_show_volume === true,
+        horizontal_volume: this._config.horizontal_volume === true
       };
       this._form.schema = this.schema();
     }
@@ -2369,7 +2392,7 @@ button {
           (Array.isArray(v) && !v.length);
         // Defaults are left out so the saved config stays short.
         if (empty || (key === 'discover' && v === true) || (key === 'glass' && v === true) ||
-            (key === 'always_show_volume' && v === false)) {
+            ((key === 'always_show_volume' || key === 'horizontal_volume') && v === false)) {
           delete config[key];
         } else {
           config[key] = v;
