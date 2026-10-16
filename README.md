@@ -42,6 +42,7 @@ A touch-first media player card for Home Assistant, made for wall tablets and ki
 | <img src="assets/landscape-browse-albums.png" alt="Browse music: albums"><br>**Browse music: albums** | <img src="assets/landscape-glass-off.png" alt="Glass off"><br>**Glass off** |
 | <img src="assets/landscape-paused-muted.png" alt="Paused and muted"><br>**Paused and muted** | <img src="assets/landscape-nothing-playing.png" alt="Nothing playing"><br>**Nothing playing** |
 | <img src="assets/landscape-volume-always.png" alt="Volume % always shown"><br>**Volume % always shown** | <img src="assets/landscape-volume-horizontal.png" alt="Horizontal volume bar"><br>**Horizontal volume bar** |
+| <img src="assets/landscape-volume-wider.png" alt="Wider volume bar"><br>**Wider volume bar** | <img src="assets/landscape-volume-wider-horizontal.png" alt="Wider horizontal volume bar"><br>**Wider horizontal volume bar** |
 
 ### Portrait
 
@@ -50,7 +51,7 @@ A touch-first media player card for Home Assistant, made for wall tablets and ki
 | <img src="assets/portrait-now-playing.png" alt="Now playing"><br>**Now playing** | <img src="assets/portrait-player-picker.png" alt="Player picker"><br>**Player picker** | <img src="assets/portrait-queue.png" alt="Queue"><br>**Queue** |
 | <img src="assets/portrait-browse-search.png" alt="Browse music: search"><br>**Browse music: search** | <img src="assets/portrait-browse-albums.png" alt="Browse music: albums"><br>**Browse music: albums** | <img src="assets/portrait-glass-off.png" alt="Glass off"><br>**Glass off** |
 | <img src="assets/portrait-paused-muted.png" alt="Paused and muted"><br>**Paused and muted** | <img src="assets/portrait-nothing-playing.png" alt="Nothing playing"><br>**Nothing playing** | <img src="assets/portrait-volume-always.png" alt="Volume % always shown"><br>**Volume % always shown** |
-| <img src="assets/portrait-volume-horizontal.png" alt="Horizontal volume bar"><br>**Horizontal volume bar** |  |  |
+| <img src="assets/portrait-volume-horizontal.png" alt="Horizontal volume bar"><br>**Horizontal volume bar** | <img src="assets/portrait-volume-wider.png" alt="Wider volume bar"><br>**Wider volume bar** | <img src="assets/portrait-volume-wider-horizontal.png" alt="Wider horizontal volume bar"><br>**Wider horizontal volume bar** |
 
 <br>
 
