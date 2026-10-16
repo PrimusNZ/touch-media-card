@@ -1,7 +1,7 @@
 # Touch Media Card
 
 <p align="center">
-  <img src="assets/01-now-playing-landscape.png" alt="Touch Media Card playing Her Heart, My Dearest Friend by PrimusNZ" width="900">
+  <img src="assets/landscape-now-playing.png" alt="Touch Media Card playing Her Heart, My Dearest Friend by PrimusNZ" width="900">
 </p>
 
 A touch-first media player card for Home Assistant, made for wall tablets and kiosks. It draws all of its own controls, with no other custom cards needed, and works with [Music Assistant](https://music-assistant.io/) players, with search, library browsing and a full queue view.
@@ -35,21 +35,21 @@ A touch-first media player card for Home Assistant, made for wall tablets and ki
 
 ### Landscape
 
-| | |
+|  |  |
 | --- | --- |
-| <img src="assets/01-now-playing-landscape.png" alt="Now playing, landscape"><br>**Now playing** | <img src="assets/03-player-picker.png" alt="Player picker"><br>**Player picker**: the player being shown is always first; the others have a Move queue button |
-| <img src="assets/04-queue.png" alt="Queue"><br>**Queue**: play, move up or down, remove or clear | <img src="assets/05-browse-search.png" alt="Browse music, song search"><br>**Browse music**: search |
-| <img src="assets/06-browse-albums.png" alt="Browse music, albums"><br>**Browse music**: albums, playlists, radio, artists and favourites | <img src="assets/07-glass-off.png" alt="Glass look off"><br>**Glass off** (`glass: false`) |
-| <img src="assets/08-paused-muted-low-volume.png" alt="Paused, muted"><br>**Paused and muted**: the muted icon always wins over the level | <img src="assets/09-nothing-playing.png" alt="Nothing playing"><br>**Nothing playing** |
-| <img src="assets/10-volume-always-shown.png" alt="Volume percentage always shown"><br>**Volume % always shown** (`always_show_volume: true`) | |
+| <img src="assets/landscape-now-playing.png" alt="Now playing"><br>**Now playing** | <img src="assets/landscape-player-picker.png" alt="Player picker"><br>**Player picker** |
+| <img src="assets/landscape-queue.png" alt="Queue"><br>**Queue** | <img src="assets/landscape-browse-search.png" alt="Browse music: search"><br>**Browse music: search** |
+| <img src="assets/landscape-browse-albums.png" alt="Browse music: albums"><br>**Browse music: albums** | <img src="assets/landscape-glass-off.png" alt="Glass off"><br>**Glass off** |
+| <img src="assets/landscape-paused-muted.png" alt="Paused and muted"><br>**Paused and muted** | <img src="assets/landscape-nothing-playing.png" alt="Nothing playing"><br>**Nothing playing** |
+| <img src="assets/landscape-volume-always.png" alt="Volume % always shown"><br>**Volume % always shown** |  |
 
 ### Portrait
 
-The art fills the width above the track info.
-
-| | | |
+|  |  |  |
 | --- | --- | --- |
-| <img src="assets/02-now-playing-portrait.png" alt="Now playing, portrait"><br>**Now playing** | <img src="assets/11-portrait-queue.png" alt="Queue, portrait"><br>**Queue** | <img src="assets/12-nothing-playing-portrait.png" alt="Nothing playing, portrait"><br>**Nothing playing** |
+| <img src="assets/portrait-now-playing.png" alt="Now playing"><br>**Now playing** | <img src="assets/portrait-player-picker.png" alt="Player picker"><br>**Player picker** | <img src="assets/portrait-queue.png" alt="Queue"><br>**Queue** |
+| <img src="assets/portrait-browse-search.png" alt="Browse music: search"><br>**Browse music: search** | <img src="assets/portrait-browse-albums.png" alt="Browse music: albums"><br>**Browse music: albums** | <img src="assets/portrait-glass-off.png" alt="Glass off"><br>**Glass off** |
+| <img src="assets/portrait-paused-muted.png" alt="Paused and muted"><br>**Paused and muted** | <img src="assets/portrait-nothing-playing.png" alt="Nothing playing"><br>**Nothing playing** | <img src="assets/portrait-volume-always.png" alt="Volume % always shown"><br>**Volume % always shown** |
 
 <br>
 
