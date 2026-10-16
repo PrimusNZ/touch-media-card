@@ -73,11 +73,11 @@ A touch-first media player card for Home Assistant, made for wall tablets and ki
 3. On your dashboard click on the icon at the right top corner then on `Edit dashboard`
 4. Click again on that icon and then click on `Manage resources`
 5. Click on `Add resource`
-6. Copy and paste this: `/local/touch-media-card/touch-media-card.js?v=2.1.0`
+6. Copy and paste this: `/local/touch-media-card/touch-media-card.js?v=2.1.1`
 7. Click on `JavaScript Module` then `Create`
 8. Go back and refresh your page
 9. You can now click on `Add card` in the bottom right corner and search for `Touch Media Card`
-10. After any update of the file you will have to edit `/local/touch-media-card/touch-media-card.js?v=2.1.0` and change the version to any higher number
+10. After any update of the file you will have to edit `/local/touch-media-card/touch-media-card.js?v=2.1.1` and change the version to any higher number
 
 If it's not working, just try to clear your browser cache.
 

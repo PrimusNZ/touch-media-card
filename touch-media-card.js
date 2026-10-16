@@ -1,5 +1,5 @@
 /**
- * Touch Media Card (touch-media-card.js) v2.1.0
+ * Touch Media Card (touch-media-card.js) v2.1.1
  * A touch-first media player card for Home Assistant, with Music Assistant
  * search and library browsing. Draws all of its own controls.
  * Author: Ryan Davies (PrimusNZ)
@@ -24,7 +24,7 @@
  * thumbnails).
  */
 (function () {
-  const VERSION = '2.1.0';
+  const VERSION = '2.1.1';
   const ACTIVE_STATES = ['playing', 'buffering'];
   const REPEAT_NEXT = {off: 'all', all: 'one', one: 'off'};
   const REPEAT_ICON = {off: 'mdi:repeat-off', all: 'mdi:repeat', one: 'mdi:repeat-once'};
