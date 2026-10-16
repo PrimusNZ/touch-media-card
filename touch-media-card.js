@@ -13,7 +13,8 @@
  * Assistant integration.
  *
  * Card options: entity_id, priority_player, priority_name, discover,
- * media_players, config_entry_id, ma_url, ma_token, template, variables, glass.
+ * media_players, config_entry_id, ma_url, ma_token, template, variables, glass,
+ * always_show_volume.
  * entity_id, priority_player and media_players entries may be button-card
  * style [[[ ... ]]] templates.
  *
@@ -588,8 +589,6 @@ button {
         rgba(255, 255, 255, 0.30) 0%, rgba(255, 255, 255, 0.08) 50%, rgba(0, 0, 0, 0.14) 100%);
       --ktm-sheen-edge: inset 0 1px 0 rgba(255, 255, 255, 0.35), inset 0 -1px 0 rgba(0, 0, 0, 0.18);
     }
-    :host([glass]) .sheet-row { box-shadow: var(--ktm-surface-edge); }
-    :host([glass]) .sheet-row.selected { background-image: var(--ktm-sheen); box-shadow: var(--ktm-sheen-edge); }
     :host([glass]) .queue-row.current, :host([glass]) .queue-item.current { box-shadow: var(--ktm-surface-edge); }
     :host([glass]) .thumb, :host([glass]) .art { position: relative; }
     :host([glass]) .thumb::after, :host([glass]) .art::after {
@@ -695,7 +694,7 @@ button {
     }
     .kdisc ha-icon { --mdc-icon-size: clamp(18px, calc(var(--row-height, 56px) * 0.42), 40px); color: var(--ktm-text-primary, #fff); }
     /* Browse music, device name and picker rows use the same font as track titles. */
-    #sources .kbtn, .kbtn.merged { font-size: inherit; font-weight: 600; }
+    #sources .kbtn, .sheet-row .kbtn { font-size: inherit; font-weight: 600; }
     .klabel { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: flex; align-items: center; }
     .kbtn.active {
       background-color: var(--ktm-accent); background-image: var(--ktm-sheen, none);
@@ -705,12 +704,9 @@ button {
     .kbtn.active .kdisc ha-icon { color: #fff; }
     .kbtn.sq-r { border-top-right-radius: 0; border-bottom-right-radius: 0; }
     .kbtn.sq-l { border-top-left-radius: 0; border-bottom-left-radius: 0; }
-    /* Player sheet entries: the entry's own pill shows behind both halves. */
-    .kbtn.merged, .kbtn.merged.active {
-      --row-height: ${SHEET_ROW_PX}px; height: ${SHEET_ROW_PX}px; border-radius: 0;
-      background: transparent; box-shadow: none; filter: none;
-    }
-    .kbtn.merged:active { background: rgba(127, 127, 127, 0.18); }
+    /* Player sheet entries: the same buttons as the controls, 5px apart. */
+    .sheet-row { --row-height: ${SHEET_ROW_PX}px; display: flex; gap: 5px; flex: 0 0 auto; }
+    .sheet-row .kbtn { height: ${SHEET_ROW_PX}px; }
     .kbtn.icon-left { justify-content: flex-start; padding-left: 18px; }
     .kbtn.playing .klabel::after {
       content: ''; display: block; flex: 0 0 auto; width: 1.15em; height: 1.15em; margin-left: 8px;
@@ -799,6 +795,12 @@ button {
       this.config = config;
       this.syncGlass();
       this.renderShell();
+      // Redraw the volume so a changed always_show_volume takes effect.
+      this.volPaint = '';
+      if (!config.always_show_volume) {
+        clearTimeout(this.volPctTimer);
+        this.shadowRoot.getElementById('vol-pct')?.classList.remove('show');
+      }
       this.sync(true);
     }
 
@@ -1509,10 +1511,13 @@ button {
       if (paint === this.volPaint) return;
       this.volPaint = paint;
       // The percentage shows while the slider is held and for a moment after
-      // the level changes.
+      // the level changes (always, with the always_show_volume option).
       const pct = Math.round(level * 100);
       if (this.volDrag) this.flashVolume(pct, true);
-      else if (this.volPct !== undefined && pct !== this.volPct) this.flashVolume(pct, false);
+      else if (this.config?.always_show_volume) {
+        if (stateObj) this.flashVolume(pct, true);
+        else root.getElementById('vol-pct').classList.remove('show');
+      } else if (this.volPct !== undefined && pct !== this.volPct) this.flashVolume(pct, false);
       this.volPct = pct;
       root.getElementById('vol-fill').style.height =
         `calc(${VOL_MUTE_PX}px + (100% - ${VOL_MUTE_PX}px) * ${level.toFixed(3)})`;
@@ -1526,14 +1531,15 @@ button {
     }
 
     // Shows the volume percentage at the top of the slider; `hold` keeps it
-    // up (slider held), otherwise it fades 5 s after the last change.
+    // up (slider held), otherwise it fades 5 s after the last change. With
+    // the always_show_volume option it never fades.
     flashVolume(pct, hold) {
       const el = this.shadowRoot.getElementById('vol-pct');
       if (!el) return;
       el.textContent = `${pct}%`;
       el.classList.add('show');
       clearTimeout(this.volPctTimer);
-      if (!hold) this.volPctTimer = setTimeout(() => el.classList.remove('show'), 5000);
+      if (!hold && !this.config?.always_show_volume) this.volPctTimer = setTimeout(() => el.classList.remove('show'), 5000);
     }
 
     buildCards() {
@@ -1557,7 +1563,7 @@ button {
     }
 
     // Returns a button description plus the handler run when it is tapped.
-    // `cls` holds extra look modifiers (sq-r, sq-l, merged, icon-left, playing).
+    // `cls` holds extra look modifiers (sq-r, sq-l, icon-left, playing).
     button(name, icon, onTap, active = false, extra = {}) {
       return {onTap, config: {name, icon, active, label: !!extra.show_name, cls: []}};
     }
@@ -1675,9 +1681,9 @@ button {
     // through the browser's address hash and history, which blanked the page
     // on wall displays when it closed.
     // It lists This Device (entity_id), the priority player and every Music
-    // Assistant player. A row's main button shows that player; the button
-    // beside it moves the shown player's queue there. Both halves sit on one
-    // pill so each entry reads as a single item.
+    // Assistant player, with the player being shown first. A row's main button
+    // shows that player; the button beside it moves the shown player's queue
+    // there. Both are ordinary card buttons, 5px apart.
     async openPlayerPopup() {
       const root = this.shadowRoot;
       const local = this.localPlayer();
@@ -1694,15 +1700,15 @@ button {
           this.closePlayerPopup();
           choose();
         }, selected, {show_name: true})};
-        row.select.config.cls.push('merged');
         if (isPlaying) row.select.config.cls.push('playing');
         if (id !== this.player && this.player) {
-          row.select.config.cls.push('icon-left');
+          // The pair meets in the middle, like the Browse music / picker row.
+          row.select.config.cls.push('icon-left', 'sq-r');
           row.move = this.button('Move queue', 'mdi:transfer', () => {
             this.closePlayerPopup();
             void this.moveQueue(id);
           }, false, {show_name: true});
-          row.move.config.cls.push('merged');
+          row.move.config.cls.push('sq-l');
         }
         rows.push(row);
       };
@@ -1721,6 +1727,9 @@ button {
           this.mode === 'other' && this.otherPlayer === id,
           () => this.command('mode', {value: 'other', entity: id}));
       }
+      // The player being shown always heads the list (the sort is stable, so
+      // the others keep their order).
+      rows.sort((a, b) => Number(b.selected) - Number(a.selected));
       root.getElementById('sheet-title-text').textContent = 'Players';
       this.sheetKind = 'select';
       this.queueToken++;
@@ -1743,13 +1752,8 @@ button {
         };
         list.replaceChildren(...rows.map(option => {
           const row = document.createElement('div');
-          // One fixed-height pill behind both halves (accent when it is the
-          // shown player).
-          row.className = option.selected ? 'sheet-row selected' : 'sheet-row';
-          row.style.cssText = `display:flex;align-items:stretch;overflow:hidden;flex:0 0 auto;` +
-            `height:${SHEET_ROW_PX}px;border-radius:${SHEET_ROW_PX / 2}px;` +
-            (option.selected ? 'background-color:var(--ktm-accent, var(--accent-color));'
-              : 'background:var(--ktm-surface);');
+          // Two buttons, 5px apart (the shown player's is accent).
+          row.className = 'sheet-row';
           const select = cellFor(option.select);
           select.style.flex = '1 1 0';
           select.style.minWidth = '0';
@@ -1757,7 +1761,6 @@ button {
           if (option.move) {
             const move = cellFor(option.move);
             move.style.flex = '0 0 38%';
-            move.style.borderLeft = '1px solid rgba(127, 127, 127, 0.25)';
             row.append(move);
           }
           return row;
@@ -2277,6 +2280,7 @@ button {
     discover: 'Find Music Assistant players automatically',
     media_players: 'Players to offer',
     glass: 'Glass look',
+    always_show_volume: 'Always show the volume %',
     config_entry_id: 'Music Assistant config entry ID',
     ma_url: 'Music Assistant server address',
     ma_token: 'Music Assistant API token'
@@ -2286,6 +2290,7 @@ button {
     priority_player: 'Optional. Shown first, and switched to when it starts playing.',
     priority_name: 'Label for the priority player. Leave empty to use its own name.',
     discover: 'Turn off to list only the players you pick below.',
+    always_show_volume: 'Keep the volume percentage on the volume bar instead of fading it out.',
     ma_url: 'Needed for the full queue view, e.g. http://192.168.1.10:8095',
     ma_token: 'Music Assistant API token (stored in the dashboard config).',
     config_entry_id: 'Only needed if it cannot be found automatically.'
@@ -2293,7 +2298,7 @@ button {
   // Options this editor manages; anything else in the config (type, template,
   // variables, ...) is passed through untouched.
   const EDITOR_KEYS = ['entity_id', 'priority_player', 'priority_name', 'discover',
-    'media_players', 'glass', 'config_entry_id', 'ma_url', 'ma_token'];
+    'media_players', 'glass', 'always_show_volume', 'config_entry_id', 'ma_url', 'ma_token'];
 
   class TouchMediaCardEditor extends HTMLElement {
     setConfig(config) {
@@ -2324,6 +2329,7 @@ button {
         ...(discover ? [] : [{name: 'media_players',
           selector: {entity: {domain: 'media_player', multiple: true}}}]),
         {name: 'glass', selector: {boolean: {}}},
+        {name: 'always_show_volume', selector: {boolean: {}}},
         {type: 'expandable', name: '', title: 'Music Assistant (queue view and browsing)',
           schema: [
             {name: 'ma_url', selector: {text: {}}},
@@ -2349,7 +2355,8 @@ button {
       this._form.data = {
         ...this._config,
         discover: this._config.discover !== false,
-        glass: this._config.glass !== false
+        glass: this._config.glass !== false,
+        always_show_volume: this._config.always_show_volume === true
       };
       this._form.schema = this.schema();
     }
@@ -2361,7 +2368,8 @@ button {
         const empty = v === undefined || v === null || v === '' ||
           (Array.isArray(v) && !v.length);
         // Defaults are left out so the saved config stays short.
-        if (empty || (key === 'discover' && v === true) || (key === 'glass' && v === true)) {
+        if (empty || (key === 'discover' && v === true) || (key === 'glass' && v === true) ||
+            (key === 'always_show_volume' && v === false)) {
           delete config[key];
         } else {
           config[key] = v;

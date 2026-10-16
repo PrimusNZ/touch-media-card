@@ -1,5 +1,9 @@
 # Touch Media Card
 
+<p align="center">
+  <img src="assets/01-now-playing-landscape.png" alt="Touch Media Card playing Her Heart, My Dearest Friend by PrimusNZ" width="900">
+</p>
+
 A touch-first media player card for Home Assistant, made for wall tablets and kiosks. It draws all of its own controls, with no other custom cards needed, and works with [Music Assistant](https://music-assistant.io/) players, with search, library browsing and a full queue view.
 
 [![Stars](https://img.shields.io/github/stars/PrimusNZ/touch-media-card?style=for-the-badge)](#) [![Last commit](https://img.shields.io/github/last-commit/PrimusNZ/touch-media-card?style=for-the-badge)](#) [![License](https://img.shields.io/github/license/PrimusNZ/touch-media-card?style=for-the-badge)](LICENSE)
@@ -8,7 +12,7 @@ A touch-first media player card for Home Assistant, made for wall tablets and ki
 
 ## Table of contents
 
-**[`Features`](#features)**  **[`Installation`](#installation)**  **[`Configuration`](#configuration)**  **[`Templates`](#templates)**  **[`Full queue view`](#full-queue-view)**  **[`Styling`](#styling)**  **[`Notes`](#notes)**  **[`License`](#license)**
+**[`Features`](#features)**  **[`Screenshots`](#screenshots)**  **[`Installation`](#installation)**  **[`Configuration`](#configuration)**  **[`Templates`](#templates)**  **[`Full queue view`](#full-queue-view)**  **[`Styling`](#styling)**  **[`Notes`](#notes)**  **[`License`](#license)**
 
 <br>
 
@@ -24,6 +28,21 @@ A touch-first media player card for Home Assistant, made for wall tablets and ki
 - Optional auto-switch: when the priority player (for example a whole-home audio group) starts playing, the card shows it.
 - Glass look, on by default (set `glass: false` to turn it off).
 - Visual editor: add and configure the card from the dashboard UI, no YAML needed.
+
+<br>
+
+## Screenshots
+
+Landscape and portrait, with the volume percentage fading out after a change (the default).
+
+| | |
+| --- | --- |
+| <img src="assets/01-now-playing-landscape.png" alt="Now playing, landscape"><br>**Now playing** | <img src="assets/02-now-playing-portrait.png" alt="Now playing, portrait" width="260"><br>**Portrait**: the art fills the width above the track info |
+| <img src="assets/03-player-picker.png" alt="Player picker"><br>**Player picker**: the player being shown is always first; the others have a Move queue button | <img src="assets/04-queue.png" alt="Queue"><br>**Queue**: play, move up or down, remove or clear |
+| <img src="assets/05-browse-search.png" alt="Browse music, song search"><br>**Browse music**: search | <img src="assets/06-browse-albums.png" alt="Browse music, albums"><br>**Browse music**: albums, playlists, radio, artists and favourites |
+| <img src="assets/07-glass-off.png" alt="Glass look off"><br>**Glass off** (`glass: false`) | <img src="assets/10-volume-always-shown.png" alt="Volume percentage always shown"><br>**Volume % always shown** (`always_show_volume: true`) |
+| <img src="assets/08-paused-muted-low-volume.png" alt="Paused, muted"><br>**Paused and muted**: the muted icon always wins over the level | <img src="assets/09-nothing-playing.png" alt="Nothing playing"><br>**Nothing playing** |
+| <img src="assets/11-portrait-queue.png" alt="Queue, portrait" width="260"><br>**Queue on a phone** | <img src="assets/12-nothing-playing-portrait.png" alt="Nothing playing, portrait" width="260"><br>**Nothing playing on a phone** |
 
 <br>
 
@@ -109,6 +128,7 @@ discover: true
 | `template` | string or list | Optional | none | Name(s) of button-card templates in this dashboard, used as the source of `variables`. See [Templates](#templates). |
 | `variables` | object | Optional | none | Variables for use in templates. They override those from `template`. |
 | `glass` | boolean | Optional | `true` | The glass look: a translucent surface and rim on the card's tiles, and a sheen on the progress and volume fills, highlighted buttons, selected player, artwork and thumbnails. Set `false` for flat tiles. |
+| `always_show_volume` | boolean | Optional | `false` | Keep the volume percentage on the volume bar all the time. By default it shows while you drag the bar and fades five seconds after the level last changes. |
 
 If neither `entity_id` nor a usable `priority_player` is set, the card shows the first available player (preferring one that is playing) until you pick another.
 
