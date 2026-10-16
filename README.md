@@ -1,6 +1,6 @@
 # Touch Media Card
 
-A touch-first media player card for Home Assistant, made for wall tablets and kiosks. It is built from [Bubble Card](https://github.com/Clooos/Bubble-Card) widgets and works with [Music Assistant](https://music-assistant.io/) players, with search, library browsing and a full queue view.
+A touch-first media player card for Home Assistant, made for wall tablets and kiosks. It draws all of its own controls, with no other custom cards needed, and works with [Music Assistant](https://music-assistant.io/) players, with search, library browsing and a full queue view.
 
 [![Stars](https://img.shields.io/github/stars/PrimusNZ/touch-media-card?style=for-the-badge)](#) [![Last commit](https://img.shields.io/github/last-commit/PrimusNZ/touch-media-card?style=for-the-badge)](#) [![License](https://img.shields.io/github/license/PrimusNZ/touch-media-card?style=for-the-badge)](LICENSE)
 
@@ -22,7 +22,8 @@ A touch-first media player card for Home Assistant, made for wall tablets and ki
 - Queue sheet (tap the song info): play, reorder or remove items, or clear the queue.
 - Player sheet: switch between this display's player, an optional priority player and other players, and move the queue between them.
 - Optional auto-switch: when the priority player (for example a whole-home audio group) starts playing, the card shows it.
-- Optional glass look, off by default (set `glass: true`).
+- Glass look, on by default (set `glass: false` to turn it off).
+- Visual editor: add and configure the card from the dashboard UI, no YAML needed.
 
 <br>
 
@@ -31,7 +32,7 @@ A touch-first media player card for Home Assistant, made for wall tablets and ki
 **Requirements:**
 
 - Home Assistant with the [Music Assistant](https://www.home-assistant.io/integrations/music_assistant/) integration. Browsing, queue moves and the queue view need it; the basic playback controls work with any media player.
-- [Bubble Card](https://github.com/Clooos/Bubble-Card), installed and loaded as a dashboard resource. This card draws its buttons and volume slider with it.
+- Nothing else. The buttons and the volume slider are drawn by the card itself.
 
 <details>
 
@@ -44,11 +45,11 @@ A touch-first media player card for Home Assistant, made for wall tablets and ki
 3. On your dashboard click on the icon at the right top corner then on `Edit dashboard`
 4. Click again on that icon and then click on `Manage resources`
 5. Click on `Add resource`
-6. Copy and paste this: `/local/touch-media-card/touch-media-card.js?v=1`
+6. Copy and paste this: `/local/touch-media-card/touch-media-card.js?v=2.1.0`
 7. Click on `JavaScript Module` then `Create`
 8. Go back and refresh your page
 9. You can now click on `Add card` in the bottom right corner and search for `Touch Media Card`
-10. After any update of the file you will have to edit `/local/touch-media-card/touch-media-card.js?v=1` and change the version to any higher number
+10. After any update of the file you will have to edit `/local/touch-media-card/touch-media-card.js?v=2.1.0` and change the version to any higher number
 
 If it's not working, just try to clear your browser cache.
 
@@ -107,7 +108,7 @@ discover: true
 | `ma_token` | string | Optional | none | A Music Assistant API token. |
 | `template` | string or list | Optional | none | Name(s) of button-card templates in this dashboard, used as the source of `variables`. See [Templates](#templates). |
 | `variables` | object | Optional | none | Variables for use in templates. They override those from `template`. |
-| `glass` | boolean | Optional | `false` | Set `true` for the glass look: a translucent surface and rim on the card's tiles, and a sheen on the progress and volume fills, highlighted buttons, selected player, artwork and thumbnails. |
+| `glass` | boolean | Optional | `true` | The glass look: a translucent surface and rim on the card's tiles, and a sheen on the progress and volume fills, highlighted buttons, selected player, artwork and thumbnails. Set `false` for flat tiles. |
 
 If neither `entity_id` nor a usable `priority_player` is set, the card shows the first available player (preferring one that is playing) until you pick another.
 
@@ -194,8 +195,8 @@ The card fills its container's height, so place it where it has room, for exampl
 
 ## Notes
 
-- Taps are handled by the card, not by Bubble Card's own tap actions, so Bubble Card options such as `tap_action` do not apply.
-- Tested on Home Assistant with Bubble Card and Music Assistant players, including a small touch display (about 800x400). Other setups may need tweaks.
+- Since version 2.0.0 the card no longer uses Bubble Card. Bubble Card can be removed if nothing else on your dashboards uses it.
+- Tested on Home Assistant with Music Assistant players, including a small touch display (about 800x400). Other setups may need tweaks.
 
 <br>
 
@@ -203,10 +204,4 @@ The card fills its container's height, so place it where it has room, for exampl
 
 Copyright © 2026 Ryan Davies (PrimusNZ).
 
-This project is licensed under the GNU General Public License v3.0 or later (GPL-3.0-or-later).
-
-You are free to use, study, modify, and redistribute this project under the terms of the GNU GPL. Redistributed copies and derivative works must comply with the applicable GPL terms and must retain applicable copyright and license notices.
-
-Ryan Davies (PrimusNZ) is the original author of this project. Contributors may identify and hold copyright in their own contributions, but redistribution must not remove or misrepresent the original project's applicable copyright and licensing notices.
-
-See the [LICENSE](LICENSE) file for the complete GNU General Public License terms.
+This project is licensed under the [MIT License](LICENSE).

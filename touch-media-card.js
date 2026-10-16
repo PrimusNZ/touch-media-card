@@ -1,35 +1,29 @@
 /**
- * Touch Media Card (touch-media-card.js) v1.1.0
- * A touch-first media player card for Home Assistant, built from Bubble Card
- * widgets, with Music Assistant search and library browsing.
+ * Touch Media Card (touch-media-card.js) v2.1.0
+ * A touch-first media player card for Home Assistant, with Music Assistant
+ * search and library browsing. Draws all of its own controls.
  * Author: Ryan Davies (PrimusNZ)
  *
- * Copyright (C) 2026 Ryan Davies (PrimusNZ)
- * SPDX-License-Identifier: GPL-3.0-or-later
+ * Copyright (c) 2026 Ryan Davies (PrimusNZ)
+ * SPDX-License-Identifier: MIT
  *
- * This program is free software: you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation, either version 3 of the License, or (at your option)
- * any later version. It is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General
- * Public License for more details: see the LICENSE file.
+ * Released under the MIT License: see the LICENSE file.
  *
- * Usage: see README.md. Needs Bubble Card (https://github.com/Clooos/Bubble-Card)
- * and, for browsing and queue moves, the Music Assistant integration.
+ * Usage: see README.md. For browsing and queue moves it needs the Music
+ * Assistant integration.
  *
  * Card options: entity_id, priority_player, priority_name, discover,
  * media_players, config_entry_id, ma_url, ma_token, template, variables, glass.
  * entity_id, priority_player and media_players entries may be button-card
  * style [[[ ... ]]] templates.
  *
- * Glass: off by default. Set `glass: true` for the glass look (a translucent
+ * Glass: on by default. Set `glass: false` to turn off the glass look (a translucent
  * glass surface and rim on its tiles, plus a sheen on its progress fill,
  * volume fill, highlighted buttons, selected player, album art and
  * thumbnails).
  */
 (function () {
-  const VERSION = '1.1.0';
+  const VERSION = '2.1.0';
   const ACTIVE_STATES = ['playing', 'buffering'];
   const REPEAT_NEXT = {off: 'all', all: 'one', one: 'off'};
   const REPEAT_ICON = {off: 'mdi:repeat-off', all: 'mdi:repeat', one: 'mdi:repeat-once'};
@@ -45,6 +39,8 @@
   const ACTION_WAIT_MS = 6000;
   // Height of one entry in the player sheet.
   const SHEET_ROW_PX = 56;
+  // Height of the mute button at the bottom of the volume bar.
+  const VOL_MUTE_PX = 64;
 
   // Colour tokens: the Kiosk dashboard's --kiosk-* variables when present,
   // otherwise the Home Assistant theme.
@@ -59,7 +55,8 @@
       --ktm-viewport-height: var(--kiosk-viewport-content-height, 100%);
       --ktm-sheen: none;
       --ktm-sheen-edge: none;
-      --ktm-bubble-surface: var(--ktm-surface);
+      --ktm-btn-surface: var(--ktm-surface);
+      --ktm-surface-solid: var(--kiosk-surface, var(--ha-card-background, var(--card-background-color, #1c1c1c)));
     }`;
   const BASE_STYLE = `
 :host {
@@ -81,47 +78,31 @@
   position: relative;
   box-sizing: border-box;
   display: grid;
-  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.4fr);
+  grid-template-columns: minmax(0, 1fr) 64px;
   gap: var(--ktm-gap);
   width: 100%;
   height: 100%;
   min-height: 0;
 }
-.art-panel {
+.stage {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+}
+.volume-col {
   min-width: 0;
   min-height: 0;
   display: grid;
-  grid-template-rows: minmax(0, 1fr) auto;
-  gap: var(--ktm-gap);
 }
-.art {
-  position: relative;
-  min-height: 0;
-  border-radius: var(--ktm-radius);
-  background: var(--ktm-surface);
-  box-shadow: var(--ktm-surface-edge);
-  overflow: hidden;
-  display: grid;
-  place-items: center;
-}
-/* The picture is laid over the whole panel and fitted inside it, so a tall
-   or short panel never crops it. */
-.art img {
-  position: absolute;
-  inset: 0;
-  width: 100%;
+#volume {
   height: 100%;
-  object-fit: contain;
-}
-.art ha-icon {
-  --mdc-icon-size: 96px;
-  color: var(--ktm-text-secondary);
-  opacity: 0.5;
 }
 /* The controls column measures its own height (container units below) so the
    buttons and the song info grow to use a tall screen; on a short one they
    keep their minimum size and the column scrolls. */
 .controls {
+  flex: 1 1 auto;
   container-type: size;
   min-width: 0;
   min-height: 0;
@@ -134,33 +115,60 @@
 .controls > .slot {
   flex: 0 0 auto;
 }
-/* Bubble Card button height is --row-height; set it per slot. */
+/* Button height is --row-height; set it per slot. */
 #transport,
 #sources {
-  --row-height: clamp(56px, 14cqh, 128px);
+  --row-height: clamp(44px, min(14cqh, 17cqw), 128px);
 }
 #now-playing {
   flex: 1 1 auto;
   min-height: 0;
   display: flex;
-  flex-direction: column;
-}
-.volume-row {
-  display: grid;
-  grid-template-columns: 64px minmax(0, 1fr);
+  flex-direction: row;
   gap: var(--ktm-gap);
 }
-.volume-row #mute {
-  order: -1;
+/* Cover art: to the left of the track info, as tall as it is. */
+.art {
+  flex: 0 0 auto;
+  align-self: stretch;
+  aspect-ratio: 1 / 1;
+  max-width: 45%;
+  border-radius: var(--ktm-radius);
+  overflow: hidden;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
 }
-.volume-row:has(#mute:empty) {
-  grid-template-columns: minmax(0, 1fr);
+.art[hidden] {
+  display: none;
+}
+.np-info {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+/* Portrait: the art is as wide as the card and the track info is below it. */
+@container (max-aspect-ratio: 1/1) {
+  #now-playing {
+    flex: 1 0 auto;
+    flex-direction: column;
+  }
+  .art {
+    align-self: auto;
+    width: 100%;
+    max-width: none;
+  }
+  .np-info .now {
+    min-height: 96px;
+  }
 }
 .slot:empty {
   display: none;
 }
-/* Keep each Bubble widget's drawing inside its own slot so nothing it
-   positions absolutely can sit over the buttons below it. */
+/* Keep each slot's drawing inside itself so nothing positioned absolutely
+   can sit over the controls below it. */
 .slot {
   position: relative;
   contain: layout paint;
@@ -184,7 +192,7 @@
   justify-content: center;
   align-items: center;
   gap: 6px;
-  font-size: clamp(12px, 2cqh, 18px);
+  font-size: clamp(11px, min(2cqh, 3.4cqw), 18px);
   font-weight: 600;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -194,30 +202,36 @@
   --mdc-icon-size: 18px;
 }
 .now-title {
-  font-size: clamp(18px, 5cqh, 48px);
+  font-size: clamp(16px, min(5cqh, 7.5cqw), 48px);
   font-weight: 700;
   line-height: 1.2;
   color: var(--ktm-text-primary);
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  overflow-wrap: anywhere;
 }
 .now-artist {
-  font-size: clamp(14px, 3.2cqh, 30px);
+  font-size: clamp(13px, min(3.2cqh, 4.6cqw), 30px);
   color: var(--ktm-text-primary);
   opacity: 0.85;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 .now-album {
-  font-size: clamp(13px, 2.6cqh, 24px);
+  font-size: clamp(12px, min(2.6cqh, 3.8cqw), 24px);
   color: var(--ktm-text-secondary);
+}
+/* Title, artist and album stay on one line; one that does not fit scrolls
+   sideways (see fitMarquee()). */
+.now-title, .now-artist, .now-album {
   overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
+  min-width: 0;
+}
+.marq-t {
+  display: inline-block;
+}
+.marq-t.scroll {
+  animation: ktm-marq var(--marq-dur, 8s) ease-in-out infinite alternate;
+}
+@keyframes ktm-marq {
+  0%, 12% { transform: translateX(0); }
+  88%, 100% { transform: translateX(calc(-1 * var(--marq-dist, 0px))); }
 }
 .now.idle .now-title {
   color: var(--ktm-text-secondary);
@@ -475,12 +489,8 @@ button {
   .now { padding: 6px 12px 8px; }
 }
 
-/* Narrow or portrait displays stack the artwork above the controls. */
+/* Narrow or portrait displays use three buttons per row. */
 @media (max-aspect-ratio: 1/1) {
-  .shell {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: minmax(160px, 0.8fr) minmax(0, 1.2fr);
-  }
   .row.seven { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 `;
@@ -561,12 +571,11 @@ button {
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
   })[ch]);
 
-  // Glass effect, on while the host has the `glass` attribute (only when
-  // the card is set to `glass: true`; see setConfig()): the glass surface
+  // Glass effect, on while the host has the `glass` attribute (unless
+  // the card is set to `glass: false`; see setConfig()): the glass surface
   // and rim for every tile, the sheen tokens that the progress fill, the
-  // volume fill and highlighted buttons read, a flat see-through fill for Bubble Card's
-  // buttons and slider (they paint with background-color, which cannot take
-  // the surface gradient), and overlays on the artwork and thumbnails.
+  // volume fill and highlighted buttons read, a flat see-through fill for the
+  // buttons and volume slider, and overlays on the artwork and thumbnails.
   const GLASS_STYLE = `
     :host([glass]) {
       --ktm-surface: linear-gradient(135deg,
@@ -578,23 +587,12 @@ button {
       --ktm-sheen: linear-gradient(180deg,
         rgba(255, 255, 255, 0.30) 0%, rgba(255, 255, 255, 0.08) 50%, rgba(0, 0, 0, 0.14) 100%);
       --ktm-sheen-edge: inset 0 1px 0 rgba(255, 255, 255, 0.35), inset 0 -1px 0 rgba(0, 0, 0, 0.18);
-      --ktm-bubble-surface: rgba(255, 255, 255, 0.06);
     }
     :host([glass]) .sheet-row { box-shadow: var(--ktm-surface-edge); }
     :host([glass]) .sheet-row.selected { background-image: var(--ktm-sheen); box-shadow: var(--ktm-sheen-edge); }
     :host([glass]) .queue-row.current, :host([glass]) .queue-item.current { box-shadow: var(--ktm-surface-edge); }
-    :host([glass]) .thumb { position: relative; }
-    :host([glass]) .art::after {
-      content: ''; position: absolute; top: 50%; left: 50%;
-      width: min(100cqw, 100cqh); height: min(100cqw, 100cqh);
-      transform: translate(-50%, -50%); border-radius: 12px; pointer-events: none;
-      background: linear-gradient(135deg,
-        rgba(255, 255, 255, 0.22) 0%, rgba(255, 255, 255, 0.05) 35%,
-        rgba(255, 255, 255, 0) 60%, rgba(255, 255, 255, 0.08) 100%);
-      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14),
-        inset 0 1px 0 rgba(255, 255, 255, 0.30), inset 0 -1px 0 rgba(0, 0, 0, 0.22);
-    }
-    :host([glass]) .thumb::after {
+    :host([glass]) .thumb, :host([glass]) .art { position: relative; }
+    :host([glass]) .thumb::after, :host([glass]) .art::after {
       content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
       background: linear-gradient(135deg,
         rgba(255, 255, 255, 0.22) 0%, rgba(255, 255, 255, 0.05) 35%,
@@ -603,31 +601,15 @@ button {
         inset 0 1px 0 rgba(255, 255, 255, 0.30), inset 0 -1px 0 rgba(0, 0, 0, 0.22);
     }`;
 
-  // Extra styles for the card host: the colour tokens handed to Bubble Card
-  // (its variables inherit into every Bubble Card inside this card), then the
-  // queue sheet rows and the track-change spinner. The sheet itself is styled
-  // in the stylesheet.
+  // Extra styles for the card host: the queue sheet rows and the track-change
+  // spinner. The sheet itself is styled in the stylesheet.
   const QUEUE_STYLE = `
-    :host {
-      --bubble-main-background-color: var(--ktm-bubble-surface);
-      --bubble-secondary-background-color: var(--ktm-bubble-surface);
-      --bubble-button-main-background-color: var(--ktm-bubble-surface);
-      --bubble-box-shadow: var(--ktm-surface-edge);
-      --bubble-accent-color: var(--ktm-accent);
-      --bubble-button-accent-color: var(--ktm-accent);
-    }
-    .art { background: transparent !important; box-shadow: none !important; border: 0 !important; container-type: size; }
-    .art img {
-      inset: auto !important; top: 50% !important; left: 50% !important; transform: translate(-50%, -50%);
-      width: min(100cqw, 100cqh) !important; height: min(100cqw, 100cqh) !important;
-      object-fit: contain; border-radius: 12px; background: transparent !important;
-    }
-    .row.two { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px; }
-    #progress { --prog-h: clamp(20px, 4cqh, 28px); }
+    .row.two { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px; }
+    #progress { --prog-h: clamp(18px, min(4cqh, 6cqw), 28px); }
     .prog { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px; }
     .prog-time {
       min-width: 3.4ch; font-variant-numeric: tabular-nums; font-weight: 600;
-      font-size: clamp(14px, 3cqh, 24px); color: var(--ktm-text-primary);
+      font-size: clamp(12px, min(3cqh, 4.4cqw), 24px); color: var(--ktm-text-primary);
     }
     .prog-time.end { text-align: right; }
     .prog-track {
@@ -647,11 +629,11 @@ button {
     .now-title { margin-top: auto; }
     .now > :last-child { margin-bottom: auto; }
     .now-state .now-queue { margin-left: auto; opacity: 0.7; }
-    #now-playing.loading::after {
+    #np-info.loading::after {
       content: ''; position: absolute; inset: 0; z-index: 1;
       border-radius: var(--ktm-radius); background: rgba(0, 0, 0, 0.5);
     }
-    #now-playing.loading::before {
+    #np-info.loading::before {
       content: ''; position: absolute; z-index: 2; top: 50%; left: 50%;
       width: 32px; height: 32px; margin: -16px 0 0 -16px; box-sizing: border-box;
       border: 4px solid rgba(255, 255, 255, 0.3); border-top-color: var(--ktm-accent, #fff);
@@ -694,79 +676,81 @@ button {
     .queue-actions button[disabled] { opacity: 0.25; cursor: default; }`;
 
 
-  // Bubble Card button layout: icon and label sit in .bubble-button, with
-  // default margins that push them off-centre. Centre the icon (and the
-  // label, when shown) and drop the empty label box on icon-only buttons.
-  const CENTER_STYLE = `
-    .bubble-button { justify-content: center !important; }
-    .bubble-main-icon-container { margin: 0 !important; flex: 0 0 auto !important; }
-    .bubble-name-container { flex-grow: 0 !important; margin: 0 0 0 10px !important; text-align: center !important; }
-    .bubble-icon-container, .bubble-main-icon-container {
-      background-color: rgba(255, 255, 255, 0.16) !important;
-      background-color: color-mix(in srgb, var(--ktm-text-primary, #fff) 22%, var(--ktm-surface, #222)) !important;
+  // Buttons (transport, browse, player picker, sheet rows) and the volume
+  // slider are plain elements drawn by this card.
+  const BUTTON_STYLE = `
+    .kbtn {
+      box-sizing: border-box; width: 100%; height: var(--row-height, 56px); margin: 0; padding: 0 8px;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      border-radius: var(--ktm-radius); background: var(--ktm-btn-surface);
+      box-shadow: var(--ktm-surface-edge); color: var(--ktm-text-primary);
+      font: inherit; font-size: clamp(13px, calc(var(--row-height, 56px) * 0.3), 16px); font-weight: 500; outline: none;
     }
-    .bubble-main-icon, .bubble-icon { color: var(--ktm-text-primary, #fff) !important; }`;
-  // The volume slider: filled with the accent colour, icon disc and text in
-  // the theme colours.
-  const SLIDER_STYLE = `
-    .bubble-range-fill {
-      background-color: var(--ktm-accent) !important; opacity: 1 !important;
-      background-image: var(--ktm-sheen, none) !important; box-shadow: var(--ktm-sheen-edge, none) !important;
+    .kbtn:active { filter: brightness(1.2); }
+    .kdisc {
+      flex: 0 0 auto; width: calc(var(--row-height, 56px) - 14px); height: calc(var(--row-height, 56px) - 14px);
+      max-width: 72px; max-height: 72px; border-radius: 50%; display: grid; place-items: center;
+      background-color: rgba(255, 255, 255, 0.16);
+      background-color: color-mix(in srgb, var(--ktm-text-primary, #fff) 22%, var(--ktm-surface-solid, #222));
     }
-    .bubble-icon-container, .bubble-main-icon-container {
-      background-color: rgba(0, 0, 0, 0.34) !important;
+    .kdisc ha-icon { --mdc-icon-size: clamp(18px, calc(var(--row-height, 56px) * 0.42), 40px); color: var(--ktm-text-primary, #fff); }
+    /* Browse music, device name and picker rows use the same font as track titles. */
+    #sources .kbtn, .kbtn.merged { font-size: inherit; font-weight: 600; }
+    .klabel { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: flex; align-items: center; }
+    .kbtn.active {
+      background-color: var(--ktm-accent); background-image: var(--ktm-sheen, none);
+      box-shadow: var(--ktm-sheen-edge, none); color: #fff; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55);
     }
-    .bubble-main-icon, .bubble-icon { color: var(--ktm-text-primary, #fff) !important; }
-    .bubble-name, .bubble-state { color: var(--ktm-text-primary, #fff) !important; }`;
-  // Buttons inside a player-sheet entry: no background of their own, so the
-  // entry's single pill shows through behind both halves, and a fixed height
-  // that matches the pill.
-  const MERGED_STYLE = `
-    :host { --row-height: ${SHEET_ROW_PX}px; }
-    .bubble-button-background { background-color: transparent !important; opacity: 0 !important; }
-    .bubble-container, .bubble-button-card-container, ha-card {
-      background: transparent !important; box-shadow: none !important;
+    .kbtn.active .kdisc { background: rgba(0, 0, 0, 0.34); box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.6); }
+    .kbtn.active .kdisc ha-icon { color: #fff; }
+    .kbtn.sq-r { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+    .kbtn.sq-l { border-top-left-radius: 0; border-bottom-left-radius: 0; }
+    /* Player sheet entries: the entry's own pill shows behind both halves. */
+    .kbtn.merged, .kbtn.merged.active {
+      --row-height: ${SHEET_ROW_PX}px; height: ${SHEET_ROW_PX}px; border-radius: 0;
+      background: transparent; box-shadow: none; filter: none;
     }
-    .bubble-container { height: ${SHEET_ROW_PX}px !important; }`;
-  // The player half of an entry that also has a Move queue button: icon at a
-  // fixed place on the left so the icons of all such entries line up.
-  const ICON_LEFT_STYLE = `
-    .bubble-button { justify-content: flex-start !important; padding-left: 18px !important; box-sizing: border-box !important; }
-    .bubble-name-container { text-align: left !important; }`;
-  // A music-note icon (mdi:music) after the name of a player that is playing.
-  const PLAYING_STYLE = `
-    .bubble-name-container { display: flex !important; flex-direction: row !important; align-items: center !important; }
-    .bubble-name { min-width: 0; }
-    .bubble-name-container::after {
+    .kbtn.merged:active { background: rgba(127, 127, 127, 0.18); }
+    .kbtn.icon-left { justify-content: flex-start; padding-left: 18px; }
+    .kbtn.playing .klabel::after {
       content: ''; display: block; flex: 0 0 auto; width: 1.15em; height: 1.15em; margin-left: 8px;
       background-color: currentColor;
       -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M21,3V15.5A3.5,3.5 0 0,1 17.5,19A3.5,3.5 0 0,1 14,15.5A3.5,3.5 0 0,1 17.5,12C18.04,12 18.55,12.12 19,12.34V6.47L9,8.6V17.5A3.5,3.5 0 0,1 5.5,21A3.5,3.5 0 0,1 2,17.5A3.5,3.5 0 0,1 5.5,14C6.04,14 6.55,14.12 7,14.34V6L21,3Z'/%3E%3C/svg%3E") center / contain no-repeat;
       mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M21,3V15.5A3.5,3.5 0 0,1 17.5,19A3.5,3.5 0 0,1 14,15.5A3.5,3.5 0 0,1 17.5,12C18.04,12 18.55,12.12 19,12.34V6.47L9,8.6V17.5A3.5,3.5 0 0,1 5.5,21A3.5,3.5 0 0,1 2,17.5A3.5,3.5 0 0,1 5.5,14C6.04,14 6.55,14.12 7,14.34V6L21,3Z'/%3E%3C/svg%3E") center / contain no-repeat;
-    }`;
-  // The two buttons that share a row meet in the middle: square corners on the
-  // sides that touch.
-  const SQUARE_RIGHT_STYLE = `
-    .bubble-container, .bubble-button-card-container, ha-card, .bubble-button-background {
-      border-top-right-radius: 0 !important; border-bottom-right-radius: 0 !important;
-    }`;
-  const SQUARE_LEFT_STYLE = `
-    .bubble-container, .bubble-button-card-container, ha-card, .bubble-button-background {
-      border-top-left-radius: 0 !important; border-bottom-left-radius: 0 !important;
-    }`;
-  const HIDE_LABEL_STYLE = `.bubble-name-container { display: none !important; }`;
-  const ACTIVE_STYLE = `
-    .bubble-button-background {
-      background-color: var(--ktm-accent, var(--accent-color)) !important; opacity: 1 !important;
-      background-image: var(--ktm-sheen, none) !important; box-shadow: var(--ktm-sheen-edge, none) !important;
     }
-    .bubble-icon-container, .bubble-main-icon-container {
-      background-color: rgba(0, 0, 0, 0.34) !important;
-      box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.6) !important;
+    /* Volume slider: tall bar on the right; its mute button sits at the bottom. */
+    .vol {
+      position: relative; box-sizing: border-box; width: 100%; height: 100%; overflow: hidden;
+      border-radius: var(--ktm-radius); background: var(--ktm-btn-surface); box-shadow: var(--ktm-surface-edge);
+      touch-action: none; cursor: pointer; user-select: none; -webkit-user-select: none;
     }
-    .bubble-main-icon, .bubble-icon { color: #fff !important; }
-    .bubble-name-container, .bubble-name, .bubble-name-container * {
-      color: #fff !important;
-      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55) !important;
+    .vol.off { opacity: 0.45; pointer-events: none; }
+    .vol-fill {
+      position: absolute; inset: auto 0 0 0; height: 64px; background-color: var(--ktm-accent);
+      background-image: var(--ktm-sheen, none); box-shadow: var(--ktm-sheen-edge, none);
+    }
+    .vol-pct {
+      position: absolute; top: 10px; left: 0; right: 0; z-index: 1; text-align: center;
+      font-size: 15px; font-weight: 700; color: #fff; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
+      opacity: 0; transition: opacity 0.2s; pointer-events: none;
+    }
+    .vol-pct.show { opacity: 1; }
+    .vol-icon {
+      position: absolute; left: 50%; bottom: 13px; width: 38px; height: 38px; margin-left: -19px;
+      border-radius: 50%; display: grid; place-items: center; background: rgba(0, 0, 0, 0.34);
+      pointer-events: none;
+    }
+    .vol-icon ha-icon { --mdc-icon-size: 24px; color: var(--ktm-text-primary, #fff); }
+    /* Narrow (phone) width: in the Browse music / player picker row the icon
+       sits above the label, smaller, so the label is not cut off. */
+    @container (max-width: 480px) {
+      #sources .kbtn {
+        flex-direction: column; justify-content: center; gap: 2px;
+        height: auto; min-height: 64px; padding: 6px 8px;
+      }
+      #sources .kdisc { width: 28px; height: 28px; }
+      #sources .kdisc ha-icon { --mdc-icon-size: 20px; }
+      #sources .klabel { max-width: 100%; }
     }`;
 
   class TouchMediaCard extends HTMLElement {
@@ -785,9 +769,8 @@ button {
       this.templatesRetryAt = 0;
       // Player chosen from the full Music Assistant list (mode 'other').
       this.otherPlayer = null;
-      this.cards = {};
       // Button rows, kept between state changes so they can be updated in
-      // place: slot id -> {wrap, cls, cells: [{el, card, onTap, sig}]}.
+      // place: slot id -> {wrap, cls, cells: [{el, onTap, sig}]}.
       this.rows = {};
       this.controlSignature = '';
       this.buildToken = 0;
@@ -803,15 +786,8 @@ button {
       this.pendingTrack = null;
       this.configEntryId = null;
       this.muteMembers = null;
-      // Signature of the volume slider's current config (its icon follows
-      // the muted state).
-      this.volumeSig = '';
-      // Bubble Cards report taps as `hass-action` events, and Home Assistant
-      // then runs their default action (a toggle, which becomes
-      // media_player.turn_off and is rejected by these players). Every real
-      // command here is issued by this card itself, so none of those events
-      // are allowed out of it.
-      this.addEventListener('hass-action', event => event.stopPropagation(), true);
+      // Set while the volume slider is being dragged: {id, level}.
+      this.volDrag = null;
     }
 
     setConfig(config) {
@@ -897,24 +873,12 @@ button {
 
     set hass(value) {
       this._hass = value;
-      // The Bubble Cards here only show the player's own entity (the volume
-      // slider) or static buttons, so they need a fresh hass only when that
-      // entity's state object, the theme or the language changes, not on every
-      // state change anywhere in Home Assistant.
-      const playerState = value?.states?.[this.player];
-      if (playerState !== this.fwdPlayerState || value?.themes !== this.fwdThemes ||
-          value?.language !== this.fwdLanguage) {
-        this.fwdPlayerState = playerState;
-        this.fwdThemes = value?.themes;
-        this.fwdLanguage = value?.language;
-        for (const card of Object.values(this.cards)) card.hass = value;
-      }
       this.sync();
     }
 
-    // The glass look is off unless the config says `glass: true`.
+    // The glass look is on unless the config says `glass: false`.
     syncGlass() {
-      this.toggleAttribute('glass', this.config?.glass === true);
+      this.toggleAttribute('glass', this.config?.glass !== false);
     }
 
     connectedCallback() {
@@ -937,6 +901,15 @@ button {
       return 8;
     }
 
+    static getConfigElement() {
+      return document.createElement('touch-media-card-editor');
+    }
+
+    static getStubConfig(hass) {
+      const player = Object.keys(hass?.states || {}).find(id => id.startsWith('media_player.'));
+      return {discover: true, ...(player ? {entity_id: player} : {})};
+    }
+
     // ---------------------------------------------------------------------
     // SHELL
     // ---------------------------------------------------------------------
@@ -944,21 +917,20 @@ button {
     renderShell() {
       if (this.shadowRoot.childElementCount) return;
       this.shadowRoot.innerHTML = `
-        <style>${TOKEN_STYLE}${BASE_STYLE}${QUEUE_STYLE}${GLASS_STYLE}</style>
+        <style>${TOKEN_STYLE}${BASE_STYLE}${BUTTON_STYLE}${QUEUE_STYLE}${GLASS_STYLE}</style>
         <div class="shell">
-          <div class="art-panel">
-            <div class="art" id="art"><ha-icon icon="mdi:music"></ha-icon></div>
-            <div class="volume-row">
-              <div class="slot" id="volume"></div>
-              <div class="slot" id="mute"></div>
+          <div class="stage">
+            <div class="controls">
+              <div class="slot" id="now-playing">
+                <div class="art" id="np-art" hidden></div>
+                <div class="np-info" id="np-info"></div>
+              </div>
+              <div class="slot" id="progress"></div>
+              <div class="slot" id="transport"></div>
+              <div class="slot" id="sources"></div>
             </div>
           </div>
-          <div class="controls">
-            <div class="slot" id="now-playing"></div>
-            <div class="slot" id="progress"></div>
-            <div class="slot" id="transport"></div>
-            <div class="slot" id="sources"></div>
-          </div>
+          <div class="volume-col"><div class="slot" id="volume"></div></div>
           <div class="sheet" id="sheet" hidden>
             <div class="sheet-backdrop" id="sheet-backdrop"></div>
             <div class="sheet-panel">
@@ -997,8 +969,12 @@ button {
       root.getElementById('sheet-close').addEventListener('click', dismiss);
       root.getElementById('sheet-backdrop').addEventListener('click', dismiss);
       this.buildProgress();
-      // Tapping the track info opens the queue.
-      this.bindTap(root.getElementById('now-playing'), () => {
+      // The track text is re-measured whenever the card changes size.
+      if (window.ResizeObserver) {
+        new ResizeObserver(() => this.fitMarquee()).observe(root.getElementById('np-info'));
+      }
+      // Tapping the track info (not the cover art) opens the queue.
+      this.bindTap(root.getElementById('np-info'), () => {
         if (this._hass?.states[this.player]) void this.openQueue();
       });
       // Buttons in the full queue list.
@@ -1130,16 +1106,17 @@ button {
       this.updateArt(player);
       this.updateNowPlaying(player);
       this.updateProgress(player);
+      this.paintVolume(player);
       if (force || player !== this.player) {
         this.player = player;
         this.controlSignature = '';
-        void this.buildCards();
+        this.buildCards();
         return;
       }
       const signature = this.signature();
       if (signature !== this.controlSignature) {
         this.controlSignature = signature;
-        void this.buildControls();
+        this.buildControls();
       }
     }
 
@@ -1199,18 +1176,18 @@ button {
       return this._hass?.states[entityId]?.attributes?.friendly_name || entityId || 'Not configured';
     }
 
+    // The cover art sits beside (portrait: above) the track info.
     updateArt(player) {
-      const root = this.shadowRoot;
-      const stateObj = this._hass?.states[player];
-      const a = stateObj?.attributes || {};
+      const holder = this.shadowRoot.getElementById('now-playing');
+      const a = this._hass?.states[player]?.attributes || {};
       const picture = a.entity_picture_local || a.entity_picture || '';
-      const art = root.getElementById('art');
-      if (art.dataset.src !== picture) {
-        art.dataset.src = picture;
-        art.innerHTML = picture
-          ? `<img src="${escapeHtml(this._hass.hassUrl ? this._hass.hassUrl(picture) : picture)}" alt="" decoding="async">`
-          : '<ha-icon icon="mdi:music"></ha-icon>';
-      }
+      const url = picture ? (this._hass.hassUrl ? this._hass.hassUrl(picture) : picture) : '';
+      if (holder.dataset.art === url) return;
+      holder.dataset.art = url;
+      const art = this.shadowRoot.getElementById('np-art');
+      art.style.backgroundImage = url ? `url("${url.replace(/"/g, '%22')}")` : '';
+      art.hidden = !url;
+      holder.classList.toggle('has-art', !!url);
     }
 
     // ---------------------------------------------------------------------
@@ -1364,11 +1341,12 @@ button {
         console.warn('[Touch Media Card] media_player.media_seek failed.', error));
     }
 
-    // Song, artist and album, drawn by this card (not a Bubble widget) so the
+    // Song, artist and album, so the
     // title can be large and the layout stays tidy at any width. Tapping it
     // opens the queue.
     updateNowPlaying(player) {
       const holder = this.shadowRoot.getElementById('now-playing');
+      const info = this.shadowRoot.getElementById('np-info');
       const stateObj = this._hass?.states[player];
       const a = stateObj?.attributes || {};
       const key = stateObj
@@ -1380,7 +1358,7 @@ button {
         void this.loadQueue();
       }
       if (!stateObj) {
-        holder.innerHTML = '<div class="message">No media player is configured for this display.</div>';
+        info.innerHTML = '<div class="message">No media player is configured for this display.</div>';
         return;
       }
       const states = {
@@ -1390,13 +1368,36 @@ button {
       };
       const [icon, label] = states[stateObj.state] || ['mdi:music-off', 'Idle'];
       const title = a.media_title;
-      holder.innerHTML = `
+      info.innerHTML = `
         <div class="now tappable ${title ? '' : 'idle'}">
           <div class="now-state"><ha-icon icon="${icon}"></ha-icon><span>${label}</span><ha-icon class="now-queue" icon="mdi:playlist-music"></ha-icon></div>
-          <div class="now-title">${escapeHtml(title || 'Nothing playing')}</div>
-          ${a.media_artist ? `<div class="now-artist">${escapeHtml(a.media_artist)}</div>` : ''}
-          ${a.media_album_name ? `<div class="now-album">${escapeHtml(a.media_album_name)}</div>` : ''}
+          <div class="now-title"><span class="marq-t">${escapeHtml(title || 'Nothing playing')}</span></div>
+          ${a.media_artist ? `<div class="now-artist"><span class="marq-t">${escapeHtml(a.media_artist)}</span></div>` : ''}
+          ${a.media_album_name ? `<div class="now-album"><span class="marq-t">${escapeHtml(a.media_album_name)}</span></div>` : ''}
         </div>`;
+      this.fitMarquee();
+    }
+
+    // Makes any of the title, artist or album that is wider than its box
+    // scroll back and forth so all of it can be read; the others stay put.
+    fitMarquee() {
+      cancelAnimationFrame(this.marqFrame);
+      this.marqFrame = requestAnimationFrame(() => {
+        const info = this.shadowRoot.getElementById('np-info');
+        info?.querySelectorAll('.now-title, .now-artist, .now-album').forEach(box => {
+          const text = box.firstElementChild;
+          if (!text) return;
+          const over = Math.ceil(text.offsetWidth - box.clientWidth);
+          const key = String(over);
+          if (text.dataset.over === key) return;
+          text.dataset.over = key;
+          text.classList.toggle('scroll', over > 1);
+          if (over > 1) {
+            text.style.setProperty('--marq-dist', `${over + 4}px`);
+            text.style.setProperty('--marq-dur', `${Math.max(6, over / 25 + 4).toFixed(1)}s`);
+          }
+        });
+      });
     }
 
     // What an action can change on a player: its state, song, shuffle,
@@ -1418,75 +1419,128 @@ button {
         player: this.player,
         timer: setTimeout(() => this.endTrackWait(), ms)
       };
-      this.shadowRoot.getElementById('now-playing')?.classList.add('loading');
+      this.shadowRoot.getElementById('np-info')?.classList.add('loading');
     }
 
     endTrackWait() {
       if (!this.pendingTrack) return;
       clearTimeout(this.pendingTrack.timer);
       this.pendingTrack = null;
-      this.shadowRoot.getElementById('now-playing')?.classList.remove('loading');
+      this.shadowRoot.getElementById('np-info')?.classList.remove('loading');
     }
 
     // ---------------------------------------------------------------------
-    // BUBBLE CARD WIDGETS
+    // BUTTONS AND VOLUME
     // ---------------------------------------------------------------------
 
-    async createCard(slot, config) {
-      const helpers = await window.loadCardHelpers();
-      const card = helpers.createCardElement(config);
-      card.hass = this._hass;
-      this.cards[slot] = card;
-      return card;
-    }
-
-    // The volume slider. Its icon doubles as the mute button, so it shows
-    // the muted state.
-    volumeConfig() {
-      return {
-        type: 'custom:bubble-card',
-        card_type: 'button',
-        button_type: 'slider',
-        entity: this.player,
-        name: 'Volume',
-        icon: this.muteInfo().muted ? 'mdi:volume-off' : 'mdi:volume-high',
-        show_state: false,
-        show_attribute: false,
-        card_layout: 'large',
-        styles: SLIDER_STYLE,
-        tap_action: {action: 'none'},
-        double_tap_action: {action: 'none'},
-        hold_action: {action: 'none'}
-      };
-    }
-
-    async buildCards() {
-      const token = ++this.buildToken;
+    // Draws the volume slider once; its handlers read the current player. Its
+    // icon doubles as the mute button (the strip over it), and the rest of
+    // the slider sets the volume while dragged.
+    buildVolume() {
       const root = this.shadowRoot;
-      const player = this.player;
-      if (!player || !this._hass?.states[player]) {
-        for (const id of ['transport', 'volume', 'mute']) root.getElementById(id).replaceChildren();
-        // The button rows were just emptied, so forget them; the next build
-        // creates them afresh.
-        for (const slot of ['transport', 'mute']) this.dropRow(slot);
-        delete this.cards.nowPlaying;
-        delete this.cards.volume;
-        await this.buildControls(token);
-        return;
-      }
-
-      const config = this.volumeConfig();
-      const volume = await this.createCard('volume', config);
-      if (token !== this.buildToken) return;
-      this.volumeSig = JSON.stringify(config);
-      // A tap on the icon at the left of the slider mutes or unmutes; the
-      // rest of the slider still sets the volume.
+      const holder = root.getElementById('volume');
+      if (holder.firstChild) return;
+      holder.innerHTML = `
+        <div class="vol off" id="vol" role="slider" aria-label="Volume">
+          <div class="vol-fill" id="vol-fill"></div>
+          <span class="vol-pct" id="vol-pct"></span>
+          <span class="vol-icon"><ha-icon id="vol-icon" icon="mdi:volume-high"></ha-icon></span>
+        </div>`;
+      const vol = root.getElementById('vol');
+      const levelAt = event => {
+        // The strip at the bottom is the mute button; the level runs from its
+        // top edge to the top of the bar.
+        const rect = vol.getBoundingClientRect();
+        const span = rect.height - VOL_MUTE_PX;
+        const ratio = span > 0 ? (rect.bottom - VOL_MUTE_PX - event.clientY) / span : 0;
+        return Math.min(1, Math.max(0, ratio));
+      };
+      let sentAt = 0;
+      const send = (level, force) => {
+        const now = Date.now();
+        if (!force && now - sentAt < 150) return;
+        sentAt = now;
+        this._hass?.callService('media_player', 'volume_set',
+          {entity_id: this.player, volume_level: Math.round(level * 100) / 100}).catch(error =>
+          console.warn('[Touch Media Card] media_player.volume_set failed.', error));
+      };
+      vol.addEventListener('pointerdown', event => {
+        if (!this._hass?.states[this.player]) return;
+        event.preventDefault();
+        vol.setPointerCapture(event.pointerId);
+        this.volDrag = {id: event.pointerId, level: levelAt(event)};
+        this.flashVolume(Math.round(this.volDrag.level * 100), true);
+        this.paintVolume(this.player);
+        send(this.volDrag.level, false);
+      });
+      vol.addEventListener('pointermove', event => {
+        if (!this.volDrag || this.volDrag.id !== event.pointerId) return;
+        this.volDrag.level = levelAt(event);
+        this.paintVolume(this.player);
+        send(this.volDrag.level, false);
+      });
+      const finish = (event, commit) => {
+        const drag = this.volDrag;
+        if (!drag || drag.id !== event.pointerId) return;
+        this.volDrag = null;
+        this.flashVolume(Math.round(drag.level * 100), false);
+        if (commit) send(drag.level, true);
+        this.paintVolume(this.player);
+      };
+      vol.addEventListener('pointerup', event => finish(event, true));
+      vol.addEventListener('pointercancel', event => finish(event, false));
+      vol.addEventListener('click', event => event.stopPropagation());
       const hit = document.createElement('div');
-      hit.style.cssText = 'position:absolute;left:0;top:0;bottom:0;width:64px;z-index:2;cursor:pointer;touch-action:manipulation;';
+      hit.style.cssText = 'position:absolute;left:0;right:0;bottom:0;height:' + VOL_MUTE_PX + 'px;z-index:2;cursor:pointer;touch-action:manipulation;';
       this.bindTap(hit, () => this.toggleMute());
-      root.getElementById('volume').replaceChildren(volume, hit);
-      this.controlSignature = this.signature();
-      await this.buildControls(token);
+      holder.append(hit);
+    }
+
+    // Shows the player's volume and the muted icon; only touches the DOM when
+    // something changed.
+    paintVolume(player) {
+      const root = this.shadowRoot;
+      const vol = root.getElementById('vol');
+      if (!vol) return;
+      const stateObj = this._hass?.states[player];
+      const level = this.volDrag ? this.volDrag.level : Number(stateObj?.attributes?.volume_level) || 0;
+      const muted = !!stateObj && this.muteInfo().muted;
+      const paint = [level.toFixed(3), muted, !!stateObj].join('|');
+      if (paint === this.volPaint) return;
+      this.volPaint = paint;
+      // The percentage shows while the slider is held and for a moment after
+      // the level changes.
+      const pct = Math.round(level * 100);
+      if (this.volDrag) this.flashVolume(pct, true);
+      else if (this.volPct !== undefined && pct !== this.volPct) this.flashVolume(pct, false);
+      this.volPct = pct;
+      root.getElementById('vol-fill').style.height =
+        `calc(${VOL_MUTE_PX}px + (100% - ${VOL_MUTE_PX}px) * ${level.toFixed(3)})`;
+      const icon = root.getElementById('vol-icon');
+      // Muted: crossed-out speaker; otherwise the icon follows the level.
+      const name = muted ? 'mdi:volume-off' : level <= 0 ? 'mdi:volume-mute'
+        : level < 0.34 ? 'mdi:volume-low' : level < 0.67 ? 'mdi:volume-medium' : 'mdi:volume-high';
+      if (icon.getAttribute('icon') !== name) icon.setAttribute('icon', name);
+      vol.classList.toggle('off', !stateObj);
+      vol.setAttribute('aria-valuenow', String(Math.round(level * 100)));
+    }
+
+    // Shows the volume percentage at the top of the slider; `hold` keeps it
+    // up (slider held), otherwise it fades 5 s after the last change.
+    flashVolume(pct, hold) {
+      const el = this.shadowRoot.getElementById('vol-pct');
+      if (!el) return;
+      el.textContent = `${pct}%`;
+      el.classList.add('show');
+      clearTimeout(this.volPctTimer);
+      if (!hold) this.volPctTimer = setTimeout(() => el.classList.remove('show'), 5000);
+    }
+
+    buildCards() {
+      this.buildVolume();
+      this.paintVolume(this.player);
+      if (this._hass?.states[this.player]) this.controlSignature = this.signature();
+      this.buildControls();
     }
 
     // Mutes or unmutes the player; for the whole bus, every member player.
@@ -1502,43 +1556,34 @@ button {
       });
     }
 
-    // Returns a Bubble Card button config plus the handler run when it is
-    // tapped. Bubble's own tap_action is left as 'none'.
+    // Returns a button description plus the handler run when it is tapped.
+    // `cls` holds extra look modifiers (sq-r, sq-l, merged, icon-left, playing).
     button(name, icon, onTap, active = false, extra = {}) {
-      return {
-        onTap,
-        config: {
-          type: 'custom:bubble-card',
-          card_type: 'button',
-          button_type: 'name',
-          name,
-          icon,
-          show_name: false,
-          card_layout: 'large',
-          tap_action: {action: 'none'},
-          double_tap_action: {action: 'none'},
-          hold_action: {action: 'none'},
-          styles: CENTER_STYLE + (extra.show_name ? '' : HIDE_LABEL_STYLE) +
-            (active ? ACTIVE_STYLE : ''),
-          ...extra
-        }
-      };
+      return {onTap, config: {name, icon, active, label: !!extra.show_name, cls: []}};
     }
 
-    // Forgets a button row (its cards and tap wrappers) without touching the DOM.
+    // The button element for a description from button().
+    buttonEl(config) {
+      const el = document.createElement('button');
+      el.type = 'button';
+      el.className = ['kbtn', config.active && 'active', ...config.cls].filter(Boolean).join(' ');
+      el.setAttribute('aria-label', config.name);
+      el.innerHTML = `<span class="kdisc"><ha-icon icon="${escapeHtml(config.icon)}"></ha-icon></span>` +
+        (config.label ? `<span class="klabel">${escapeHtml(config.name)}</span>` : '');
+      return el;
+    }
+
+    // Forgets a button row without touching the DOM.
     dropRow(slot) {
-      Object.keys(this.cards)
-        .filter(key => key.startsWith(`${slot}-`))
-        .forEach(key => delete this.cards[key]);
       delete this.rows[slot];
     }
 
     // Shows `buttons` in the row `slot`. When the row already holds the same
-    // number of buttons they are updated in place: only a button whose config
-    // actually changed gets setConfig, and each tap wrapper just receives its
-    // new handler. A different button count (the player appeared or went
-    // away) builds the row afresh.
-    renderRow(slot, buttons, cls, helpers, hass) {
+    // number of buttons they are updated in place: only a button whose
+    // description actually changed is redrawn, and each tap wrapper just
+    // receives its new handler. A different button count (the player appeared
+    // or went away) builds the row afresh.
+    renderRow(slot, buttons, cls) {
       const holder = this.shadowRoot.getElementById(slot);
       const existing = this.rows[slot];
       if (existing && existing.cls === cls && existing.cells.length === buttons.length &&
@@ -1549,8 +1594,7 @@ button {
           const sig = JSON.stringify(config);
           if (sig === cell.sig) return;
           cell.sig = sig;
-          cell.card.setConfig(config);
-          cell.card.hass = hass;
+          cell.el.replaceChildren(this.buttonEl(config));
         });
         return;
       }
@@ -1561,18 +1605,15 @@ button {
       }
       const wrap = document.createElement('div');
       wrap.className = `row ${cls}`;
-      const cells = buttons.map(({config, onTap, join}, index) => {
-        const card = helpers.createCardElement(config);
-        card.hass = hass;
-        this.cards[`${slot}-${index}`] = card;
+      const cells = buttons.map(({config, onTap, join}) => {
         const el = document.createElement('div');
         el.className = 'tap';
-        // A joined button sits 2px from its left neighbour instead of the
-        // row's gap.
-        if (join) el.style.marginLeft = 'calc(2px - var(--ktm-gap))';
-        const cell = {el, card, onTap, sig: JSON.stringify(config)};
+        // A joined button sits 2px (or `join` px) from its left neighbour
+        // instead of the row's gap.
+        if (join) el.style.marginLeft = `calc(${join === true ? 2 : join}px - var(--ktm-gap))`;
+        const cell = {el, onTap, sig: JSON.stringify(config)};
         this.bindTap(el, () => cell.onTap());
-        el.append(card);
+        el.append(this.buttonEl(config));
         wrap.append(el);
         return cell;
       });
@@ -1580,7 +1621,7 @@ button {
       holder.replaceChildren(wrap);
     }
 
-    async buildControls(token = this.buildToken) {
+    buildControls() {
       const hass = this._hass;
       const player = this.player;
       const stateObj = hass?.states[player];
@@ -1597,11 +1638,11 @@ button {
       const repeat = a.repeat || 'off';
       // Previous, Play/Pause and Next meet in the middle, as do Shuffle and
       // Repeat; Stop stands alone. `join` pulls a button up to its left neighbour.
-      const joined = (button, left, right) => {
-        if (right) button.config.styles += SQUARE_RIGHT_STYLE;
+      const joined = (button, left, right, gap) => {
+        if (right) button.config.cls.push('sq-r');
         if (left) {
-          button.config.styles += SQUARE_LEFT_STYLE;
-          button.join = true;
+          button.config.cls.push('sq-l');
+          button.join = gap || true;
         }
         return button;
       };
@@ -1615,44 +1656,30 @@ button {
         joined(this.button('Shuffle', a.shuffle ? 'mdi:shuffle' : 'mdi:shuffle-disabled',
           cmd('shuffle'), !!a.shuffle), false, true),
         joined(this.button('Repeat', REPEAT_ICON[repeat] || 'mdi:repeat', cmd('repeat'),
-          repeat !== 'off'), true, false)
+          repeat !== 'off'), true, false, 5)
       ] : [];
       // One button opens the browser; its own tabs cover search, playlists,
       // radio and the rest.
       const browse = [this.button('Browse music', 'mdi:music-box-multiple',
         cmd('browse', {tab: this.browseTab || 'search'}), false, {show_name: true})];
 
-      const helpers = await window.loadCardHelpers();
-      if (token !== this.buildToken) return;
-      // The volume slider's icon follows the muted state.
-      const volumeCard = this.cards.volume;
-      if (volumeCard && stateObj) {
-        const config = this.volumeConfig();
-        const sig = JSON.stringify(config);
-        if (sig !== this.volumeSig) {
-          this.volumeSig = sig;
-          volumeCard.setConfig(config);
-          volumeCard.hass = hass;
-        }
-      }
       // Browse music (left) and the player picker (right) share one row.
-      browse[0].config.styles += SQUARE_RIGHT_STYLE;
-      selector.config.styles += SQUARE_LEFT_STYLE;
-      this.renderRow('sources', [...browse, selector], 'two', helpers, hass);
-      this.renderRow('transport', transport, 'seven', helpers, hass);
+      browse[0].config.cls.push('sq-r');
+      selector.config.cls.push('sq-l');
+      this.renderRow('sources', [...browse, selector], 'two');
+      this.renderRow('transport', transport, 'seven');
     }
 
     // The player sheet is a sheet over this card (backdrop, header and one
-    // row per player). It is deliberately not a Bubble pop-up: those open and
-    // close through the browser's address hash and history, which blanked the
-    // page on wall displays when they closed.
+    // row per player). It is deliberately not a pop-up that opens and closes
+    // through the browser's address hash and history, which blanked the page
+    // on wall displays when it closed.
     // It lists This Device (entity_id), the priority player and every Music
     // Assistant player. A row's main button shows that player; the button
     // beside it moves the shown player's queue there. Both halves sit on one
     // pill so each entry reads as a single item.
     async openPlayerPopup() {
       const root = this.shadowRoot;
-      const helpers = await window.loadCardHelpers();
       const local = this.localPlayer();
       const bus = this.busPlayer();
       const states = this._hass?.states || {};
@@ -1667,14 +1694,15 @@ button {
           this.closePlayerPopup();
           choose();
         }, selected, {show_name: true})};
-        row.select.config.styles += MERGED_STYLE + (isPlaying ? PLAYING_STYLE : '');
+        row.select.config.cls.push('merged');
+        if (isPlaying) row.select.config.cls.push('playing');
         if (id !== this.player && this.player) {
-          row.select.config.styles += ICON_LEFT_STYLE;
+          row.select.config.cls.push('icon-left');
           row.move = this.button('Move queue', 'mdi:transfer', () => {
             this.closePlayerPopup();
             void this.moveQueue(id);
           }, false, {show_name: true});
-          row.move.config.styles += MERGED_STYLE;
+          row.move.config.cls.push('merged');
         }
         rows.push(row);
       };
@@ -1696,7 +1724,6 @@ button {
       root.getElementById('sheet-title-text').textContent = 'Players';
       this.sheetKind = 'select';
       this.queueToken++;
-      this.dropSheetCards();
       const list = root.getElementById('sheet-options');
       // A long player list scrolls inside the sheet.
       list.style.maxHeight = '60vh';
@@ -1707,15 +1734,11 @@ button {
         empty.textContent = 'No players are available.';
         list.replaceChildren(empty);
       } else {
-        let n = 0;
         const cellFor = ({config, onTap}) => {
-          const card = helpers.createCardElement(config);
-          card.hass = this._hass;
-          this.cards[`sheet-${n++}`] = card;
           const cell = document.createElement('div');
           cell.className = 'tap';
           this.bindTap(cell, onTap);
-          cell.append(card);
+          cell.append(this.buttonEl(config));
           return cell;
         };
         list.replaceChildren(...rows.map(option => {
@@ -1799,7 +1822,6 @@ button {
       const root = this.shadowRoot;
       root.getElementById('sheet-title-text').textContent = 'Queue';
       this.sheetKind = 'queue';
-      this.dropSheetCards();
       const list = root.getElementById('sheet-options');
       list.style.maxHeight = '60vh';
       list.style.overflowY = 'auto';
@@ -1856,9 +1878,6 @@ button {
           return;
         }
       }
-      const helpers = await window.loadCardHelpers();
-      if (stale()) return;
-      this.dropSheetCards();
 
       const warning = problem ? `<div class="queue-info">${escapeHtml(problem)}</div>` : '';
       let html;
@@ -1873,13 +1892,10 @@ button {
         this._hass.callService('media_player', 'clear_playlist', {entity_id: player}).catch(error =>
           console.warn('[Touch Media Card] media_player.clear_playlist failed.', error));
       }, false, {show_name: true});
-      const card = helpers.createCardElement(clear.config);
-      card.hass = this._hass;
-      this.cards['sheet-0'] = card;
       const cell = document.createElement('div');
       cell.className = 'tap';
       this.bindTap(cell, clear.onTap);
-      cell.append(card);
+      cell.append(this.buttonEl(clear.config));
       list.append(cell);
     }
 
@@ -1994,17 +2010,11 @@ button {
       if (this.sheetKind === 'queue') await this.loadQueue();
     }
 
-    dropSheetCards() {
-      Object.keys(this.cards).filter(key => key.startsWith('sheet-'))
-        .forEach(key => delete this.cards[key]);
-    }
-
     closePlayerPopup() {
       const sheet = this.shadowRoot.getElementById('sheet');
       if (sheet) sheet.hidden = true;
       this.sheetKind = null;
       this.queueToken++;
-      this.dropSheetCards();
     }
 
     // Moves the queue of the shown player to `target` with Music Assistant's
@@ -2033,7 +2043,7 @@ button {
     }
 
     // Pointer events, in the capture phase, so a tap registers even if the
-    // Bubble widget cancels touch or click events. A press that moves more
+    // nested control cancels touch or click events. A press that moves more
     // than a few pixels is treated as a scroll and ignored.
     bindTap(cell, onTap) {
       let start = null;
@@ -2053,7 +2063,7 @@ button {
     }
 
     // ---------------------------------------------------------------------
-    // ACTIONS FROM BUBBLE BUTTONS
+    // ACTIONS FROM THE BUTTONS
     // ---------------------------------------------------------------------
 
     command(name, detail = {}) {
@@ -2256,14 +2266,125 @@ button {
     }
   }
 
+  // ---------------------------------------------------------------------
+  // VISUAL EDITOR
+  // ---------------------------------------------------------------------
+
+  const EDITOR_LABELS = {
+    entity_id: 'This display\'s media player (entity_id)',
+    priority_player: 'Priority player (e.g. whole-home audio)',
+    priority_name: 'Priority player name',
+    discover: 'Find Music Assistant players automatically',
+    media_players: 'Players to offer',
+    glass: 'Glass look',
+    config_entry_id: 'Music Assistant config entry ID',
+    ma_url: 'Music Assistant server address',
+    ma_token: 'Music Assistant API token'
+  };
+  const EDITOR_HELP = {
+    entity_id: 'The player that belongs to this screen. A [[[ template ]]] is kept as written.',
+    priority_player: 'Optional. Shown first, and switched to when it starts playing.',
+    priority_name: 'Label for the priority player. Leave empty to use its own name.',
+    discover: 'Turn off to list only the players you pick below.',
+    ma_url: 'Needed for the full queue view, e.g. http://192.168.1.10:8095',
+    ma_token: 'Music Assistant API token (stored in the dashboard config).',
+    config_entry_id: 'Only needed if it cannot be found automatically.'
+  };
+  // Options this editor manages; anything else in the config (type, template,
+  // variables, ...) is passed through untouched.
+  const EDITOR_KEYS = ['entity_id', 'priority_player', 'priority_name', 'discover',
+    'media_players', 'glass', 'config_entry_id', 'ma_url', 'ma_token'];
+
+  class TouchMediaCardEditor extends HTMLElement {
+    setConfig(config) {
+      this._config = {...config};
+      this.renderForm();
+    }
+
+    set hass(value) {
+      this._hass = value;
+      if (this._form) this._form.hass = value;
+    }
+
+    // An entity picker, or plain text when the value is a [[[ template ]]]
+    // (a picker would not show it, and could overwrite it).
+    playerField(name) {
+      const value = this._config?.[name];
+      return {name, selector: isTemplate(value) ? {text: {}}
+        : {entity: {domain: 'media_player'}}};
+    }
+
+    schema() {
+      const discover = this._config?.discover !== false;
+      return [
+        this.playerField('entity_id'),
+        this.playerField('priority_player'),
+        {name: 'priority_name', selector: {text: {}}},
+        {name: 'discover', selector: {boolean: {}}},
+        ...(discover ? [] : [{name: 'media_players',
+          selector: {entity: {domain: 'media_player', multiple: true}}}]),
+        {name: 'glass', selector: {boolean: {}}},
+        {type: 'expandable', name: '', title: 'Music Assistant (queue view and browsing)',
+          schema: [
+            {name: 'ma_url', selector: {text: {}}},
+            {name: 'ma_token', selector: {text: {type: 'password'}}},
+            {name: 'config_entry_id', selector: {text: {}}}
+          ]}
+      ];
+    }
+
+    renderForm() {
+      if (!this._config) return;
+      if (!this._form) {
+        this._form = document.createElement('ha-form');
+        this._form.computeLabel = item => EDITOR_LABELS[item.name] || item.title || item.name;
+        this._form.computeHelper = item => EDITOR_HELP[item.name] || '';
+        this._form.addEventListener('value-changed', event => {
+          event.stopPropagation();
+          this.valueChanged(event.detail.value || {});
+        });
+        this.append(this._form);
+      }
+      this._form.hass = this._hass;
+      this._form.data = {
+        ...this._config,
+        discover: this._config.discover !== false,
+        glass: this._config.glass !== false
+      };
+      this._form.schema = this.schema();
+    }
+
+    valueChanged(value) {
+      const config = {...this._config};
+      for (const key of EDITOR_KEYS) {
+        const v = value[key];
+        const empty = v === undefined || v === null || v === '' ||
+          (Array.isArray(v) && !v.length);
+        // Defaults are left out so the saved config stays short.
+        if (empty || (key === 'discover' && v === true) || (key === 'glass' && v === true)) {
+          delete config[key];
+        } else {
+          config[key] = v;
+        }
+      }
+      this._config = config;
+      this.renderForm();
+      this.dispatchEvent(new CustomEvent('config-changed', {
+        detail: {config}, bubbles: true, composed: true
+      }));
+    }
+  }
+
   if (!customElements.get('touch-media-card')) {
     console.info(`%c TOUCH-MEDIA-CARD %c v${VERSION} `, 'background:#03a9f4;color:#fff', '');
     customElements.define('touch-media-card', TouchMediaCard);
+    customElements.define('touch-media-card-editor', TouchMediaCardEditor);
     window.customCards = window.customCards || [];
     window.customCards.push({
       type: 'touch-media-card',
       name: 'Touch Media Card',
-      description: 'Touch-first Bubble Card media player with Music Assistant browsing.'
+      description: 'Touch-first media player with Music Assistant browsing.',
+      preview: false
     });
   }
 })();
