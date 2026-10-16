@@ -138,6 +138,7 @@ discover: true
 | `glass` | boolean | Optional | `true` | The glass look: a translucent surface and rim on the card's tiles, and a sheen on the progress and volume fills, highlighted buttons, selected player, artwork and thumbnails. Set `false` for flat tiles. |
 | `always_show_volume` | boolean | Optional | `false` | Keep the volume percentage on the volume bar all the time. By default it shows while you drag the bar and fades five seconds after the level last changes. |
 | `horizontal_volume` | boolean | Optional | `false` | Move the volume bar to the bottom of the card, full width, running left to right with the mute button at its left end. By default it is a vertical bar on the right. |
+| `wider_volume` | boolean | Optional | `false` | Make the volume bar 64px thick instead of 32px, in both the vertical and horizontal layouts. |
 
 If neither `entity_id` nor a usable `priority_player` is set, the card shows the first available player (preferring one that is playing) until you pick another.
 

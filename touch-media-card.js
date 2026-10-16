@@ -14,7 +14,7 @@
  *
  * Card options: entity_id, priority_player, priority_name, discover,
  * media_players, config_entry_id, ma_url, ma_token, template, variables, glass,
- * always_show_volume, horizontal_volume.
+ * always_show_volume, horizontal_volume, wider_volume.
  * entity_id, priority_player and media_players entries may be button-card
  * style [[[ ... ]]] templates.
  *
@@ -43,7 +43,9 @@
   // Height of the mute button at the bottom of the volume bar.
   const VOL_MUTE_PX = 64;
   // Thickness of the volume bar: its width, or its height with horizontal_volume.
+  // wider_volume makes it VOL_WIDE_PX.
   const VOL_BAR_PX = 32;
+  const VOL_WIDE_PX = 64;
 
   // Colour tokens: the Kiosk dashboard's --kiosk-* variables when present,
   // otherwise the Home Assistant theme.
@@ -751,6 +753,14 @@ button {
     :host([hvol]) .vol-fill { inset: 0 auto 0 0; height: auto; width: ${VOL_MUTE_PX}px; }
     :host([hvol]) .vol-pct { font-size: 15px; top: 50%; left: auto; right: 16px; width: auto; transform: translateY(-50%); }
     :host([hvol]) .vol-icon { left: 13px; bottom: auto; top: 50%; margin: -13px 0 0; }
+    /* wider_volume: the bar is VOL_WIDE_PX thick, with a larger icon and %. */
+    :host([wide]:not([hvol])) .shell { grid-template-columns: minmax(0, 1fr) ${VOL_WIDE_PX}px; }
+    :host([wide][hvol]) .shell { grid-template-rows: minmax(0, 1fr) ${VOL_WIDE_PX}px; }
+    :host([wide][hvol]) #volume { height: ${VOL_WIDE_PX}px; }
+    :host([wide]) .vol-pct { font-size: 15px; }
+    :host([wide]) .vol-icon { bottom: 13px; width: 38px; height: 38px; margin-left: -19px; }
+    :host([wide]) .vol-icon ha-icon { --mdc-icon-size: 24px; }
+    :host([wide][hvol]) .vol-icon { left: 13px; bottom: auto; top: 50%; margin: -19px 0 0; }
     /* Narrow (phone) width: in the Browse music / player picker row the icon
        sits above the label, smaller, so the label is not cut off. */
     @container (max-width: 480px) {
@@ -810,6 +820,7 @@ button {
       this.syncGlass();
       this.renderShell();
       this.toggleAttribute('hvol', config.horizontal_volume === true);
+      this.toggleAttribute('wide', config.wider_volume === true);
       // Redraw the volume so a changed always_show_volume takes effect.
       this.volPaint = '';
       if (!config.always_show_volume) {
@@ -2301,6 +2312,7 @@ button {
     glass: 'Glass look',
     always_show_volume: 'Always show the volume %',
     horizontal_volume: 'Horizontal volume bar',
+    wider_volume: 'Wider volume bar',
     config_entry_id: 'Music Assistant config entry ID',
     ma_url: 'Music Assistant server address',
     ma_token: 'Music Assistant API token'
@@ -2312,6 +2324,7 @@ button {
     discover: 'Turn off to list only the players you pick below.',
     always_show_volume: 'Keep the volume percentage on the volume bar instead of fading it out.',
     horizontal_volume: 'Put the volume bar along the bottom, full width, running left to right.',
+    wider_volume: 'Make the volume bar 64px thick instead of 32px.',
     ma_url: 'Needed for the full queue view, e.g. http://192.168.1.10:8095',
     ma_token: 'Music Assistant API token (stored in the dashboard config).',
     config_entry_id: 'Only needed if it cannot be found automatically.'
@@ -2319,7 +2332,7 @@ button {
   // Options this editor manages; anything else in the config (type, template,
   // variables, ...) is passed through untouched.
   const EDITOR_KEYS = ['entity_id', 'priority_player', 'priority_name', 'discover',
-    'media_players', 'glass', 'always_show_volume', 'horizontal_volume', 'config_entry_id', 'ma_url', 'ma_token'];
+    'media_players', 'glass', 'always_show_volume', 'horizontal_volume', 'wider_volume', 'config_entry_id', 'ma_url', 'ma_token'];
 
   class TouchMediaCardEditor extends HTMLElement {
     setConfig(config) {
@@ -2352,6 +2365,7 @@ button {
         {name: 'glass', selector: {boolean: {}}},
         {name: 'always_show_volume', selector: {boolean: {}}},
         {name: 'horizontal_volume', selector: {boolean: {}}},
+        {name: 'wider_volume', selector: {boolean: {}}},
         {type: 'expandable', name: '', title: 'Music Assistant (queue view and browsing)',
           schema: [
             {name: 'ma_url', selector: {text: {}}},
@@ -2379,7 +2393,8 @@ button {
         discover: this._config.discover !== false,
         glass: this._config.glass !== false,
         always_show_volume: this._config.always_show_volume === true,
-        horizontal_volume: this._config.horizontal_volume === true
+        horizontal_volume: this._config.horizontal_volume === true,
+        wider_volume: this._config.wider_volume === true
       };
       this._form.schema = this.schema();
     }
@@ -2392,7 +2407,7 @@ button {
           (Array.isArray(v) && !v.length);
         // Defaults are left out so the saved config stays short.
         if (empty || (key === 'discover' && v === true) || (key === 'glass' && v === true) ||
-            ((key === 'always_show_volume' || key === 'horizontal_volume') && v === false)) {
+            (['always_show_volume', 'horizontal_volume', 'wider_volume'].includes(key) && v === false)) {
           delete config[key];
         } else {
           config[key] = v;
