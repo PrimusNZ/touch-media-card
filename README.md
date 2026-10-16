@@ -33,16 +33,23 @@ A touch-first media player card for Home Assistant, made for wall tablets and ki
 
 ## Screenshots
 
-Landscape and portrait, with the volume percentage fading out after a change (the default).
+### Landscape
 
 | | |
 | --- | --- |
-| <img src="assets/01-now-playing-landscape.png" alt="Now playing, landscape"><br>**Now playing** | <img src="assets/02-now-playing-portrait.png" alt="Now playing, portrait" width="260"><br>**Portrait**: the art fills the width above the track info |
-| <img src="assets/03-player-picker.png" alt="Player picker"><br>**Player picker**: the player being shown is always first; the others have a Move queue button | <img src="assets/04-queue.png" alt="Queue"><br>**Queue**: play, move up or down, remove or clear |
-| <img src="assets/05-browse-search.png" alt="Browse music, song search"><br>**Browse music**: search | <img src="assets/06-browse-albums.png" alt="Browse music, albums"><br>**Browse music**: albums, playlists, radio, artists and favourites |
-| <img src="assets/07-glass-off.png" alt="Glass look off"><br>**Glass off** (`glass: false`) | <img src="assets/10-volume-always-shown.png" alt="Volume percentage always shown"><br>**Volume % always shown** (`always_show_volume: true`) |
+| <img src="assets/01-now-playing-landscape.png" alt="Now playing, landscape"><br>**Now playing** | <img src="assets/03-player-picker.png" alt="Player picker"><br>**Player picker**: the player being shown is always first; the others have a Move queue button |
+| <img src="assets/04-queue.png" alt="Queue"><br>**Queue**: play, move up or down, remove or clear | <img src="assets/05-browse-search.png" alt="Browse music, song search"><br>**Browse music**: search |
+| <img src="assets/06-browse-albums.png" alt="Browse music, albums"><br>**Browse music**: albums, playlists, radio, artists and favourites | <img src="assets/07-glass-off.png" alt="Glass look off"><br>**Glass off** (`glass: false`) |
 | <img src="assets/08-paused-muted-low-volume.png" alt="Paused, muted"><br>**Paused and muted**: the muted icon always wins over the level | <img src="assets/09-nothing-playing.png" alt="Nothing playing"><br>**Nothing playing** |
-| <img src="assets/11-portrait-queue.png" alt="Queue, portrait" width="260"><br>**Queue on a phone** | <img src="assets/12-nothing-playing-portrait.png" alt="Nothing playing, portrait" width="260"><br>**Nothing playing on a phone** |
+| <img src="assets/10-volume-always-shown.png" alt="Volume percentage always shown"><br>**Volume % always shown** (`always_show_volume: true`) | |
+
+### Portrait
+
+The art fills the width above the track info.
+
+| | | |
+| --- | --- | --- |
+| <img src="assets/02-now-playing-portrait.png" alt="Now playing, portrait"><br>**Now playing** | <img src="assets/11-portrait-queue.png" alt="Queue, portrait"><br>**Queue** | <img src="assets/12-nothing-playing-portrait.png" alt="Nothing playing, portrait"><br>**Nothing playing** |
 
 <br>
 
