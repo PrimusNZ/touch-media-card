@@ -1,5 +1,5 @@
 /**
- * Touch Media Card (touch-media-card.js) v2.1.1
+ * Touch Media Card (touch-media-card.js) v2.1.2
  * A touch-first media player card for Home Assistant, with Music Assistant
  * search and library browsing. Draws all of its own controls.
  * Author: Ryan Davies (PrimusNZ)
@@ -13,10 +13,10 @@
  * Assistant integration.
  *
  * Card options: entity_id, priority_player, priority_name, discover,
- * media_players, config_entry_id, ma_url, ma_token, template, variables, glass,
- * always_show_volume, horizontal_volume, wider_volume.
- * entity_id, priority_player and media_players entries may be button-card
- * style [[[ ... ]]] templates.
+ * media_players, config_entry_id, ma_url, ma_token, glass,
+ * always_show_volume, idle_image.
+ * entity_id, priority_player and media_players entries may be [[[ ... ]]]
+ * JavaScript templates.
  *
  * Glass: on by default. Set `glass: false` to turn off the glass look (a translucent
  * glass surface and rim on its tiles, plus a sheen on its progress fill,
@@ -24,7 +24,7 @@
  * thumbnails).
  */
 (function () {
-  const VERSION = '2.1.1';
+  const VERSION = '2.1.2';
   const ACTIVE_STATES = ['playing', 'buffering'];
   const REPEAT_NEXT = {off: 'all', all: 'one', one: 'off'};
   const REPEAT_ICON = {off: 'mdi:repeat-off', all: 'mdi:repeat', one: 'mdi:repeat-once'};
@@ -42,10 +42,8 @@
   const SHEET_ROW_PX = 56;
   // Height of the mute button at the bottom of the volume bar.
   const VOL_MUTE_PX = 64;
-  // Thickness of the volume bar: its width, or its height with horizontal_volume.
-  // wider_volume makes it VOL_WIDE_PX.
-  const VOL_BAR_PX = 32;
-  const VOL_WIDE_PX = 64;
+  // Height of the bottom row: the volume bar, Browse music and the player picker.
+  const BOTTOM_ROW_PX = 66;
 
   // Colour tokens: the Kiosk dashboard's --kiosk-* variables when present,
   // otherwise the Home Assistant theme.
@@ -69,6 +67,7 @@
   box-sizing: border-box;
   height: var(--ktm-viewport-height);
   min-height: 300px;
+  container-type: size;
   color: var(--ktm-text-primary);
   --ktm-gap: 8px;
   --ktm-radius: var(--kiosk-border-radius-12px, 12px);
@@ -83,25 +82,35 @@
   position: relative;
   box-sizing: border-box;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) ${VOL_BAR_PX}px;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.4fr);
+  grid-template-rows: minmax(0, 1fr) ${BOTTOM_ROW_PX}px;
+  grid-template-areas: "art main" "vol src";
   gap: var(--ktm-gap);
   width: 100%;
   height: 100%;
   min-height: 0;
 }
 .stage {
+  grid-area: main;
   position: relative;
   min-width: 0;
   min-height: 0;
   display: flex;
 }
 .volume-col {
+  grid-area: vol;
   min-width: 0;
   min-height: 0;
   display: grid;
 }
 #volume {
   height: 100%;
+}
+.src-col {
+  grid-area: src;
+  min-width: 0;
+  min-height: 0;
+  display: grid;
 }
 /* The controls column measures its own height (container units below) so the
    buttons and the song info grow to use a tall screen; on a short one they
@@ -121,31 +130,34 @@
   flex: 0 0 auto;
 }
 /* Button height is --row-height; set it per slot. */
-#transport,
-#sources {
+#transport {
   --row-height: clamp(44px, min(14cqh, 17cqw), 128px);
+}
+#sources {
+  --row-height: ${BOTTOM_ROW_PX}px;
 }
 #now-playing {
   flex: 1 1 auto;
   min-height: 0;
   display: flex;
-  flex-direction: row;
-  gap: var(--ktm-gap);
+  flex-direction: column;
 }
-/* Cover art: to the left of the track info, as tall as it is. */
+/* Cover art: fills the left column, above the volume bar. */
 .art {
-  flex: 0 0 auto;
-  align-self: stretch;
-  aspect-ratio: 1 / 1;
-  max-width: 45%;
+  grid-area: art;
+  min-width: 0;
+  min-height: 0;
   border-radius: var(--ktm-radius);
   overflow: hidden;
+  background-color: var(--ktm-surface);
+  box-shadow: var(--ktm-surface-edge);
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
 }
-.art[hidden] {
-  display: none;
+/* The idle_image is shown whole, centred, instead of cropped to fill. */
+.art.idle {
+  background-size: contain;
 }
 .np-info {
   position: relative;
@@ -154,16 +166,20 @@
   display: flex;
   flex-direction: column;
 }
-/* Portrait: the art is as wide as the card and the track info is below it. */
+/* Portrait: one column - art, track info and controls, volume, then the
+   Browse music / player picker row. */
 @container (max-aspect-ratio: 1/1) {
-  #now-playing {
-    flex: 1 0 auto;
-    flex-direction: column;
+  .shell {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr) ${BOTTOM_ROW_PX}px auto;
+    grid-template-areas: "art" "main" "vol" "src";
+    overflow-y: auto;
   }
   .art {
-    align-self: auto;
+    aspect-ratio: 1 / 1;
+    max-height: 45cqh;
+    justify-self: center;
     width: 100%;
-    max-width: none;
   }
   .np-info .now {
     min-height: 96px;
@@ -517,59 +533,25 @@ button {
   ];
 
   // ---------------------------------------------------------------------
-  // TEMPLATES (button-card style [[[ ... ]]])
+  // TEMPLATES ([[[ ... ]]] expressions)
   // ---------------------------------------------------------------------
 
   const TEMPLATE_RE = /^\s*\[\[\[([\s\S]*)\]\]\]\s*$/;
   const compiledTemplates = new Map();
-  // Dashboard button_card_templates, read once per page load.
-  const templateStore = {data: null, promise: null};
 
   const isTemplate = value => typeof value === 'string' && TEMPLATE_RE.test(value);
 
-  // Runs the body of a [[[ ]]] template like button-card does: as a function
-  // body with hass, states, variables and user in scope. A body without
-  // `return` is treated as one expression.
+  // Runs the body of a [[[ ]]] template as a function body with hass, states
+  // and user in scope. A body without `return` is treated as one expression.
   function runTemplate(source, context) {
     let fn = compiledTemplates.get(source);
     if (!fn) {
       let body = TEMPLATE_RE.exec(source)[1];
       if (!/\breturn\b/.test(body)) body = `return (${body.trim().replace(/;+$/, '')});`;
-      fn = new Function('hass', 'states', 'variables', 'user', 'entity', body);
+      fn = new Function('hass', 'states', 'user', body);
       compiledTemplates.set(source, fn);
     }
-    return fn(context.hass, context.hass?.states || {}, context.variables, context.hass?.user, undefined);
-  }
-
-  // Variables from the named button-card templates (and the templates they
-  // use), later ones overriding earlier ones.
-  function collectTemplateVariables(names, store, seen = new Set()) {
-    const out = {};
-    for (const name of [].concat(names || [])) {
-      const template = store?.[name];
-      if (!template || seen.has(name)) continue;
-      seen.add(name);
-      Object.assign(out, collectTemplateVariables(template.template, store, seen), template.variables || {});
-    }
-    return out;
-  }
-
-  function loadButtonCardTemplates(hass) {
-    if (templateStore.data) return Promise.resolve(templateStore.data);
-    if (!templateStore.promise) {
-      const path = window.location.pathname.split('/')[1];
-      templateStore.promise = hass.callWS({
-        type: 'lovelace/config',
-        url_path: !path || path === 'lovelace' ? null : path
-      }).then(config => {
-        templateStore.data = config?.button_card_templates || {};
-        return templateStore.data;
-      }).catch(error => {
-        templateStore.promise = null;
-        throw error;
-      });
-    }
-    return templateStore.promise;
+    return fn(context.hass, context.hass?.states || {}, context.hass?.user);
   }
 
   const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, ch => ({
@@ -710,7 +692,12 @@ button {
     .kbtn.sq-l { border-top-left-radius: 0; border-bottom-left-radius: 0; }
     /* Player sheet entries: the same buttons as the controls, 5px apart. */
     .sheet-row { --row-height: ${SHEET_ROW_PX}px; display: flex; gap: 5px; flex: 0 0 auto; }
-    .sheet-row .kbtn { height: ${SHEET_ROW_PX}px; }
+    /* A long player name wraps onto more lines; both buttons in a row keep
+       the same height. */
+    .sheet-row .tap { display: flex; }
+    .sheet-row .kbtn { height: auto; min-height: ${SHEET_ROW_PX}px; padding-top: 6px; padding-bottom: 6px; }
+    .sheet-row .klabel { white-space: normal; overflow-wrap: anywhere; line-height: 1.2; }
+    .sheet-row .kbtn.icon-left .klabel { text-align: left; }
     .kbtn.icon-left { justify-content: flex-start; padding-left: 18px; }
     .kbtn.playing .klabel::after {
       content: ''; display: block; flex: 0 0 auto; width: 1.15em; height: 1.15em; margin-left: 8px;
@@ -718,7 +705,7 @@ button {
       -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M21,3V15.5A3.5,3.5 0 0,1 17.5,19A3.5,3.5 0 0,1 14,15.5A3.5,3.5 0 0,1 17.5,12C18.04,12 18.55,12.12 19,12.34V6.47L9,8.6V17.5A3.5,3.5 0 0,1 5.5,21A3.5,3.5 0 0,1 2,17.5A3.5,3.5 0 0,1 5.5,14C6.04,14 6.55,14.12 7,14.34V6L21,3Z'/%3E%3C/svg%3E") center / contain no-repeat;
       mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M21,3V15.5A3.5,3.5 0 0,1 17.5,19A3.5,3.5 0 0,1 14,15.5A3.5,3.5 0 0,1 17.5,12C18.04,12 18.55,12.12 19,12.34V6.47L9,8.6V17.5A3.5,3.5 0 0,1 5.5,21A3.5,3.5 0 0,1 2,17.5A3.5,3.5 0 0,1 5.5,14C6.04,14 6.55,14.12 7,14.34V6L21,3Z'/%3E%3C/svg%3E") center / contain no-repeat;
     }
-    /* Volume slider: tall bar on the right; its mute button sits at the bottom. */
+    /* Volume slider: a bar under the cover art; its mute button sits at the left end. */
     .vol {
       position: relative; box-sizing: border-box; width: 100%; height: 100%; overflow: hidden;
       border-radius: var(--ktm-radius); background: var(--ktm-btn-surface); box-shadow: var(--ktm-surface-edge);
@@ -726,41 +713,28 @@ button {
     }
     .vol.off { opacity: 0.45; pointer-events: none; }
     .vol-fill {
-      position: absolute; inset: auto 0 0 0; height: 64px; background-color: var(--ktm-accent);
+      position: absolute; inset: 0 auto 0 0; width: 64px; background-color: var(--ktm-accent);
       background-image: var(--ktm-sheen, none); box-shadow: var(--ktm-sheen-edge, none);
     }
     .vol-pct {
-      position: absolute; top: 10px; left: 0; right: 0; z-index: 1; text-align: center;
-      font-size: 12px; font-weight: 700; color: #fff; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
+      position: absolute; top: 50%; right: 16px; z-index: 1; transform: translateY(-50%);
+      font-size: 15px; font-weight: 700; color: #fff; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
       opacity: 0; transition: opacity 0.2s; pointer-events: none;
     }
     .vol-pct.show { opacity: 1; }
-    .vol-hit { left: 0; right: 0; bottom: 0; height: ${VOL_MUTE_PX}px; }
-    :host([hvol]) .vol-hit { right: auto; top: 0; width: ${VOL_MUTE_PX}px; height: auto; }
+    /* The mute button is the strip at the left end of the bar. */
+    .vol-hit { left: 0; top: 0; bottom: 0; width: ${VOL_MUTE_PX}px; }
     .vol-icon {
-      position: absolute; left: 50%; bottom: ${(VOL_MUTE_PX - 26) / 2}px; width: 26px; height: 26px; margin-left: -13px;
+      position: absolute; left: 13px; top: 50%; width: 38px; height: 38px; margin-top: -19px;
       border-radius: 50%; display: grid; place-items: center; background: rgba(0, 0, 0, 0.34);
       pointer-events: none;
     }
-    .vol-icon ha-icon { --mdc-icon-size: 18px; color: var(--ktm-text-primary, #fff); }
-    /* horizontal_volume: the bar runs along the bottom, left to right, with
-       the mute button at its left end. */
-    :host([hvol]) .shell {
-      grid-template-columns: minmax(0, 1fr);
-      grid-template-rows: minmax(0, 1fr) ${VOL_BAR_PX}px;
+    .vol-icon ha-icon { --mdc-icon-size: 24px; color: var(--ktm-text-primary, #fff); }
+    .vol-label {
+      position: absolute; left: ${VOL_MUTE_PX + 6}px; top: 50%; transform: translateY(-50%);
+      font-size: 16px; font-weight: 600; color: var(--ktm-text-primary, #fff);
+      pointer-events: none; white-space: nowrap;
     }
-    :host([hvol]) #volume { height: ${VOL_BAR_PX}px; }
-    :host([hvol]) .vol-fill { inset: 0 auto 0 0; height: auto; width: ${VOL_MUTE_PX}px; }
-    :host([hvol]) .vol-pct { font-size: 15px; top: 50%; left: auto; right: 16px; width: auto; transform: translateY(-50%); }
-    :host([hvol]) .vol-icon { left: 13px; bottom: auto; top: 50%; margin: -13px 0 0; }
-    /* wider_volume: the bar is VOL_WIDE_PX thick, with a larger icon and %. */
-    :host([wide]:not([hvol])) .shell { grid-template-columns: minmax(0, 1fr) ${VOL_WIDE_PX}px; }
-    :host([wide][hvol]) .shell { grid-template-rows: minmax(0, 1fr) ${VOL_WIDE_PX}px; }
-    :host([wide][hvol]) #volume { height: ${VOL_WIDE_PX}px; }
-    :host([wide]) .vol-pct { font-size: 15px; }
-    :host([wide]) .vol-icon { bottom: 13px; width: 38px; height: 38px; margin-left: -19px; }
-    :host([wide]) .vol-icon ha-icon { --mdc-icon-size: 24px; }
-    :host([wide][hvol]) .vol-icon { left: 13px; bottom: auto; top: 50%; margin: -19px 0 0; }
     /* Narrow (phone) width: in the Browse music / player picker row the icon
        sits above the label, smaller, so the label is not cut off. */
     @container (max-width: 480px) {
@@ -786,7 +760,6 @@ button {
       // player, the optional priority player and its label, and the extra
       // players to offer when discover is false.
       this.opts = {local: '', priority: '', priorityName: '', players: []};
-      this.templatesRetryAt = 0;
       // Player chosen from the full Music Assistant list (mode 'other').
       this.otherPlayer = null;
       // Button rows, kept between state changes so they can be updated in
@@ -819,8 +792,6 @@ button {
       this.config = config;
       this.syncGlass();
       this.renderShell();
-      this.toggleAttribute('hvol', config.horizontal_volume === true);
-      this.toggleAttribute('wide', config.wider_volume === true);
       // Redraw the volume so a changed always_show_volume takes effect.
       this.volPaint = '';
       if (!config.always_show_volume) {
@@ -831,12 +802,11 @@ button {
     }
 
     // Evaluates a [[[ ]]] template (or returns a plain value) in this card's
-    // context. `variables` is built lazily so a variable that is itself a
-    // template is evaluated when read, as in button-card.
-    resolveValue(value, variables) {
+    // context.
+    resolveValue(value) {
       if (!isTemplate(value)) return typeof value === 'string' ? value.trim() : '';
       try {
-        const result = runTemplate(value, {hass: this._hass, variables});
+        const result = runTemplate(value, {hass: this._hass});
         return typeof result === 'string' ? result.trim() : '';
       } catch (error) {
         console.warn('[Touch Media Card] Template in the touch media card failed.', error);
@@ -844,40 +814,12 @@ button {
       }
     }
 
-    templateVariables() {
-      const raw = {...collectTemplateVariables(this.config?.template, templateStore.data),
-        ...(this.config?.variables || {})};
-      const variables = {};
-      const active = new Set();
-      for (const key of Object.keys(raw)) {
-        Object.defineProperty(variables, key, {
-          enumerable: true,
-          get: () => {
-            const value = raw[key];
-            if (!isTemplate(value)) return value;
-            if (active.has(key)) return undefined;
-            active.add(key);
-            try {
-              return runTemplate(value, {hass: this._hass, variables});
-            } catch (error) {
-              console.warn(`[Touch Media Card] Variable ${key} failed.`, error);
-              return undefined;
-            } finally {
-              active.delete(key);
-            }
-          }
-        });
-      }
-      return variables;
-    }
-
     // The card options with templates resolved. entity_id is this display's
     // own player; priority_player is optional, and when it is missing or
     // does not exist there is no priority player at all.
     resolveOptions() {
       const config = this.config || {};
-      const variables = this.templateVariables();
-      const resolve = value => this.resolveValue(value, variables);
+      const resolve = value => this.resolveValue(value);
       const states = this._hass?.states || {};
       const local = resolve(config.entity_id);
       let priority = resolve(config.priority_player);
@@ -887,16 +829,6 @@ button {
       const priorityName = String(config.priority_name || '').trim() ||
         states[priority]?.attributes?.friendly_name || 'Priority player';
       this.opts = {local, priority, priorityName, players};
-    }
-
-    // Reads the dashboard's button-card templates once, when the card names
-    // any, then redraws so templates that use their variables resolve.
-    ensureTemplates() {
-      if (!this.config?.template || templateStore.data || !this._hass?.callWS ||
-          Date.now() < this.templatesRetryAt) return;
-      this.templatesRetryAt = Date.now() + 5000;
-      loadButtonCardTemplates(this._hass).then(() => this.sync(true)).catch(error =>
-        console.warn('[Touch Media Card] Could not read the dashboard templates for the touch media card.', error));
     }
 
     set hass(value) {
@@ -947,17 +879,17 @@ button {
       this.shadowRoot.innerHTML = `
         <style>${TOKEN_STYLE}${BASE_STYLE}${BUTTON_STYLE}${QUEUE_STYLE}${GLASS_STYLE}</style>
         <div class="shell">
+          <div class="art" id="np-art"></div>
           <div class="stage">
             <div class="controls">
               <div class="slot" id="now-playing">
-                <div class="art" id="np-art" hidden></div>
                 <div class="np-info" id="np-info"></div>
               </div>
               <div class="slot" id="progress"></div>
               <div class="slot" id="transport"></div>
-              <div class="slot" id="sources"></div>
             </div>
           </div>
+          <div class="src-col"><div class="slot" id="sources"></div></div>
           <div class="volume-col"><div class="slot" id="volume"></div></div>
           <div class="sheet" id="sheet" hidden>
             <div class="sheet-backdrop" id="sheet-backdrop"></div>
@@ -1079,7 +1011,6 @@ button {
       this.renderShell();
       const hass = this._hass;
       if (!hass?.states) return;
-      this.ensureTemplates();
       this.resolveOptions();
       const localPlayer = this.localPlayer();
       const busPlayer = this.busPlayer();
@@ -1209,13 +1140,19 @@ button {
       const holder = this.shadowRoot.getElementById('now-playing');
       const a = this._hass?.states[player]?.attributes || {};
       const picture = a.entity_picture_local || a.entity_picture || '';
-      const url = picture ? (this._hass.hassUrl ? this._hass.hassUrl(picture) : picture) : '';
-      if (holder.dataset.art === url) return;
-      holder.dataset.art = url;
+      const coverUrl = picture ? (this._hass.hassUrl ? this._hass.hassUrl(picture) : picture) : '';
+      // With no cover art (nothing playing, or no player), the idle_image
+      // option, when set, is shown in its place.
+      const idle = String(this.config?.idle_image || '').trim();
+      const url = coverUrl || idle;
+      const isIdle = !coverUrl && !!idle;
+      const key = (isIdle ? 'idle:' : '') + url;
+      if (holder.dataset.art === key) return;
+      holder.dataset.art = key;
       const art = this.shadowRoot.getElementById('np-art');
       art.style.backgroundImage = url ? `url("${url.replace(/"/g, '%22')}")` : '';
-      art.hidden = !url;
-      holder.classList.toggle('has-art', !!url);
+      art.classList.toggle('idle', isIdle);
+      holder.classList.toggle('has-art', !!coverUrl);
     }
 
     // ---------------------------------------------------------------------
@@ -1471,19 +1408,17 @@ button {
       holder.innerHTML = `
         <div class="vol off" id="vol" role="slider" aria-label="Volume">
           <div class="vol-fill" id="vol-fill"></div>
+          <span class="vol-label">Volume</span>
           <span class="vol-pct" id="vol-pct"></span>
           <span class="vol-icon"><ha-icon id="vol-icon" icon="mdi:volume-high"></ha-icon></span>
         </div>`;
       const vol = root.getElementById('vol');
       const levelAt = event => {
-        // The strip at the bottom is the mute button; the level runs from its
+        // The strip at the left is the mute button; the level runs from its
         // top edge to the top of the bar.
         const rect = vol.getBoundingClientRect();
-        const horizontal = this.hasAttribute('hvol');
-        const span = (horizontal ? rect.width : rect.height) - VOL_MUTE_PX;
-        const ratio = span <= 0 ? 0 : horizontal
-          ? (event.clientX - rect.left - VOL_MUTE_PX) / span
-          : (rect.bottom - VOL_MUTE_PX - event.clientY) / span;
+        const span = rect.width - VOL_MUTE_PX;
+        const ratio = span <= 0 ? 0 : (event.clientX - rect.left - VOL_MUTE_PX) / span;
         return Math.min(1, Math.max(0, ratio));
       };
       let sentAt = 0;
@@ -1549,7 +1484,7 @@ button {
         else root.getElementById('vol-pct').classList.remove('show');
       } else if (this.volPct !== undefined && pct !== this.volPct) this.flashVolume(pct, false);
       this.volPct = pct;
-      root.getElementById('vol-fill').style[this.hasAttribute('hvol') ? 'width' : 'height'] =
+      root.getElementById('vol-fill').style.width =
         `calc(${VOL_MUTE_PX}px + (100% - ${VOL_MUTE_PX}px) * ${level.toFixed(3)})`;
       const icon = root.getElementById('vol-icon');
       // Muted: crossed-out speaker; otherwise the icon follows the level.
@@ -2313,8 +2248,7 @@ button {
     media_players: 'Players to offer',
     glass: 'Glass look',
     always_show_volume: 'Always show the volume %',
-    horizontal_volume: 'Horizontal volume bar',
-    wider_volume: 'Wider volume bar',
+    idle_image: 'Image when nothing is playing',
     config_entry_id: 'Music Assistant config entry ID',
     ma_url: 'Music Assistant server address',
     ma_token: 'Music Assistant API token'
@@ -2325,16 +2259,15 @@ button {
     priority_name: 'Label for the priority player. Leave empty to use its own name.',
     discover: 'Turn off to list only the players you pick below.',
     always_show_volume: 'Keep the volume percentage on the volume bar instead of fading it out.',
-    horizontal_volume: 'Put the volume bar along the bottom, full width, running left to right.',
-    wider_volume: 'Make the volume bar 64px thick instead of 32px.',
+    idle_image: 'Optional. Picture shown in the cover art tile when there is no cover art, e.g. /local/touch-media-card/idle.svg',
     ma_url: 'Needed for the full queue view, e.g. http://192.168.1.10:8095',
     ma_token: 'Music Assistant API token (stored in the dashboard config).',
     config_entry_id: 'Only needed if it cannot be found automatically.'
   };
-  // Options this editor manages; anything else in the config (type, template,
-  // variables, ...) is passed through untouched.
+  // Options this editor manages; anything else in the config (type, ...) is
+  // passed through untouched.
   const EDITOR_KEYS = ['entity_id', 'priority_player', 'priority_name', 'discover',
-    'media_players', 'glass', 'always_show_volume', 'horizontal_volume', 'wider_volume', 'config_entry_id', 'ma_url', 'ma_token'];
+    'media_players', 'glass', 'always_show_volume', 'idle_image', 'config_entry_id', 'ma_url', 'ma_token'];
 
   class TouchMediaCardEditor extends HTMLElement {
     setConfig(config) {
@@ -2366,8 +2299,7 @@ button {
           selector: {entity: {domain: 'media_player', multiple: true}}}]),
         {name: 'glass', selector: {boolean: {}}},
         {name: 'always_show_volume', selector: {boolean: {}}},
-        {name: 'horizontal_volume', selector: {boolean: {}}},
-        {name: 'wider_volume', selector: {boolean: {}}},
+        {name: 'idle_image', selector: {text: {}}},
         {type: 'expandable', name: '', title: 'Music Assistant (queue view and browsing)',
           schema: [
             {name: 'ma_url', selector: {text: {}}},
@@ -2394,9 +2326,7 @@ button {
         ...this._config,
         discover: this._config.discover !== false,
         glass: this._config.glass !== false,
-        always_show_volume: this._config.always_show_volume === true,
-        horizontal_volume: this._config.horizontal_volume === true,
-        wider_volume: this._config.wider_volume === true
+        always_show_volume: this._config.always_show_volume === true
       };
       this._form.schema = this.schema();
     }
@@ -2409,7 +2339,7 @@ button {
           (Array.isArray(v) && !v.length);
         // Defaults are left out so the saved config stays short.
         if (empty || (key === 'discover' && v === true) || (key === 'glass' && v === true) ||
-            (['always_show_volume', 'horizontal_volume', 'wider_volume'].includes(key) && v === false)) {
+            (key === 'always_show_volume' && v === false)) {
           delete config[key];
         } else {
           config[key] = v;
@@ -2436,4 +2366,5 @@ button {
     });
   }
 })();
+
 

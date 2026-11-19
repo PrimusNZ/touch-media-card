@@ -1,12 +1,12 @@
 # Touch Media Card
 
-<p align="center">
-  <img src="assets/landscape-now-playing.png" alt="Touch Media Card playing Her Heart, My Dearest Friend by PrimusNZ" width="900">
-</p>
-
-A touch-first media player card for Home Assistant, made for wall tablets and kiosks. It draws all of its own controls, with no other custom cards needed, and works with [Music Assistant](https://music-assistant.io/) players, with search, library browsing and a full queue view.
+A music player card for Home Assistant that is easy to use by touch, made for wall tablets and similar screens. It draws all of its own buttons, so you do not need any other custom cards. It works with [Music Assistant](https://music-assistant.io/) players and lets you search and browse your music and see the whole queue.
 
 [![Stars](https://img.shields.io/github/stars/PrimusNZ/touch-media-card?style=for-the-badge)](#) [![Last commit](https://img.shields.io/github/last-commit/PrimusNZ/touch-media-card?style=for-the-badge)](#) [![License](https://img.shields.io/github/license/PrimusNZ/touch-media-card?style=for-the-badge)](LICENSE)
+
+<br>
+
+![Now playing, wide screen](assets/landscape-now-playing.png)
 
 <br>
 
@@ -18,47 +18,40 @@ A touch-first media player card for Home Assistant, made for wall tablets and ki
 
 ## Features
 
-- Large album art, song, artist and album, with play state.
-- Track progress slider with elapsed and total time. Drag it to seek (when the player supports seeking).
-- Volume slider. The icon at its left is the mute button.
-- Shuffle, previous, play/pause, next, stop and repeat. Stop also clears the queue.
+- Wide screens: big album art on the left with a volume bar under it. The song details, progress bar and playback buttons are on the right, with Browse music and the player picker along the bottom.
+- Tall screens (portrait): the album art sits above the controls.
+- Song, artist and album, and whether the music is playing, paused or stopped.
+- Progress bar with the time played and the total time. Drag it to jump to another point in the song, if the player allows it.
+- Volume bar. The speaker icon at its left mutes and unmutes. The percentage shows while you change the volume and then fades, or stays on screen if you turn on `always_show_volume`.
+- Previous, play and pause, next, stop, shuffle and repeat. Stop also clears the queue.
 - Browse music: search, playlists, radio, albums, artists and favourites from Music Assistant.
-- Queue sheet (tap the song info): play, reorder or remove items, or clear the queue.
-- Player sheet: switch between this display's player, an optional priority player and other players, and move the queue between them.
-- Optional auto-switch: when the priority player (for example a whole-home audio group) starts playing, the card shows it.
-- Glass look, on by default (set `glass: false` to turn it off).
-- Visual editor: add and configure the card from the dashboard UI, no YAML needed.
+- Queue: tap the song details to see what is coming up. You can play, move or remove songs, or clear the queue.
+- Player picker: choose which player to show and control, and move the queue from one player to another.
+- Optional automatic switching: when a main player (for example a whole-home speaker group) starts playing, the card shows it.
+- Optional picture for when nothing is playing, using `idle_image`.
+- A glass look, on by default (turn it off with `glass: false`).
+- A visual editor, so you can add and change the card from the dashboard without writing any YAML.
 
 <br>
 
 ## Screenshots
 
-### Landscape
-
-|  |  |
+| Wide screen | Tall screen |
 | --- | --- |
-| <img src="assets/landscape-now-playing.png" alt="Now playing"><br>**Now playing** | <img src="assets/landscape-player-picker.png" alt="Player picker"><br>**Player picker** |
-| <img src="assets/landscape-queue.png" alt="Queue"><br>**Queue** | <img src="assets/landscape-browse-search.png" alt="Browse music: search"><br>**Browse music: search** |
-| <img src="assets/landscape-browse-albums.png" alt="Browse music: albums"><br>**Browse music: albums** | <img src="assets/landscape-glass-off.png" alt="Glass off"><br>**Glass off** |
-| <img src="assets/landscape-paused-muted.png" alt="Paused and muted"><br>**Paused and muted** | <img src="assets/landscape-nothing-playing.png" alt="Nothing playing"><br>**Nothing playing** |
-| <img src="assets/landscape-volume-always.png" alt="Volume % always shown"><br>**Volume % always shown** |  |
-
-### Portrait
-
-|  |  |  |
-| --- | --- | --- |
-| <img src="assets/portrait-now-playing.png" alt="Now playing"><br>**Now playing** | <img src="assets/portrait-player-picker.png" alt="Player picker"><br>**Player picker** | <img src="assets/portrait-queue.png" alt="Queue"><br>**Queue** |
-| <img src="assets/portrait-browse-search.png" alt="Browse music: search"><br>**Browse music: search** | <img src="assets/portrait-browse-albums.png" alt="Browse music: albums"><br>**Browse music: albums** | <img src="assets/portrait-glass-off.png" alt="Glass off"><br>**Glass off** |
-| <img src="assets/portrait-paused-muted.png" alt="Paused and muted"><br>**Paused and muted** | <img src="assets/portrait-nothing-playing.png" alt="Nothing playing"><br>**Nothing playing** | <img src="assets/portrait-volume-always.png" alt="Volume % always shown"><br>**Volume % always shown** |
+| ![Now playing](assets/landscape-now-playing.png) | ![Now playing, tall screen](assets/portrait-now-playing.png) |
+| ![Queue](assets/landscape-queue.png) | ![Queue, tall screen](assets/portrait-queue.png) |
+| ![Search](assets/landscape-browse-search.png) | ![Albums, tall screen](assets/portrait-browse-albums.png) |
+| ![Player picker](assets/landscape-player-picker.png) | ![Player picker, tall screen](assets/portrait-player-picker.png) |
+| ![Nothing playing, with a picture](assets/landscape-nothing-playing.png) | ![Nothing playing, tall screen](assets/portrait-nothing-playing.png) |
 
 <br>
 
 ## Installation
 
-**Requirements:**
+**What you need:**
 
-- Home Assistant with the [Music Assistant](https://www.home-assistant.io/integrations/music_assistant/) integration. Browsing, queue moves and the queue view need it; the basic playback controls work with any media player.
-- Nothing else. The buttons and the volume slider are drawn by the card itself.
+- Home Assistant with the [Music Assistant](https://www.home-assistant.io/integrations/music_assistant/) integration. Browsing, moving the queue and the queue list need it. The basic playback buttons work with any media player.
+- Nothing else. The card draws its own buttons and volume bar.
 
 <details>
 
@@ -67,37 +60,37 @@ A touch-first media player card for Home Assistant, made for wall tablets and ki
 <br>
 
 1. Download this file: [touch-media-card.js](https://raw.githubusercontent.com/PrimusNZ/touch-media-card/main/touch-media-card.js)
-2. Add this file to your `<config>/www/touch-media-card` folder.
-3. On your dashboard click on the icon at the right top corner then on `Edit dashboard`
-4. Click again on that icon and then click on `Manage resources`
-5. Click on `Add resource`
-6. Copy and paste this: `/local/touch-media-card/touch-media-card.js?v=2.1.1`
-7. Click on `JavaScript Module` then `Create`
-8. Go back and refresh your page
-9. You can now click on `Add card` in the bottom right corner and search for `Touch Media Card`
-10. After any update of the file you will have to edit `/local/touch-media-card/touch-media-card.js?v=2.1.1` and change the version to any higher number
+2. Put the file in your `<config>/www/touch-media-card` folder.
+3. On your dashboard, click the three dots at the top right, then `Edit dashboard`.
+4. Click the three dots again, then `Manage resources`.
+5. Click `Add resource`.
+6. Paste this: `/local/touch-media-card/touch-media-card.js?v=1`
+7. Choose `JavaScript Module`, then click `Create`.
+8. Go back and refresh the page.
+9. Click `Add card` in the bottom right corner and search for `Touch Media Card`.
+10. After you update the file, edit the resource address and change the number after `?v=` to a higher one so your browser loads the new copy.
 
-If it's not working, just try to clear your browser cache.
+If it does not work, try clearing your browser cache.
 
 </details>
 
 <details>
 
-<summary>With HACS (Recommended)</summary>
+<summary>With HACS (recommended)</summary>
 
 <br>
 
-This method allows you to get updates directly on the Home Assistant Community Store
+This way you get updates straight from the Home Assistant Community Store.
 
-1. If HACS is not installed yet, download it following the instructions on [https://hacs.xyz/docs/use/download/download/](https://hacs.xyz/docs/use/download/download/)
-2. Proceed to the HACS initial configuration following the instructions on [https://hacs.xyz/docs/configuration/basic](https://hacs.xyz/docs/configuration/basic)
-3. On your sidebar go to "HACS"
-4. Click on the blue button below (or add `https://github.com/PrimusNZ/touch-media-card` as a custom repository of type `Dashboard`)
-5. Click on "Download"
-6. Go back on your dashboard and click on the icon at the right top corner then on `Edit dashboard`
-7. You can now click on `Add card` in the bottom right corner and search for `Touch Media Card`
+1. If HACS is not installed yet, follow the steps at [https://hacs.xyz/docs/use/download/download/](https://hacs.xyz/docs/use/download/download/).
+2. Finish the first-time HACS setup: [https://hacs.xyz/docs/configuration/basic](https://hacs.xyz/docs/configuration/basic).
+3. Open "HACS" in the sidebar.
+4. Click the blue button below (or add `https://github.com/PrimusNZ/touch-media-card` as a custom repository of type `Dashboard`).
+5. Click "Download".
+6. Go back to your dashboard, click the three dots at the top right, then `Edit dashboard`.
+7. Click `Add card` in the bottom right corner and search for `Touch Media Card`.
 
-If it's not working, try to clear your browser/app cache (on all your devices if needed).
+If it does not work, try clearing the browser or app cache (on every device if needed).
 
 </details>
 
@@ -109,6 +102,8 @@ If it's not working, try to clear your browser/app cache (on all your devices if
 
 ## Configuration
 
+You can set everything up with the visual editor. If you prefer YAML, this is a small example:
+
 ```yaml
 type: custom:touch-media-card
 entity_id: media_player.kitchen_display
@@ -119,31 +114,30 @@ discover: true
 
 <details>
 
-<summary><b>Options (YAML + description)</b></summary>
+<summary><b>All options</b></summary>
 
 | Name | Type | Requirement | Default | Description |
 | --- | --- | --- | --- | --- |
 | `type` | string | **Required** | | `custom:touch-media-card` |
-| `entity_id` | string | Optional | none | This display's own player. Shown as **This Device** in the player sheet and selected when it starts playing. Can be a [template](#templates). |
-| `priority_player` | string | Optional | none | A player that takes over the card whenever it starts playing, such as a whole-home group. If it is not set, or the entity does not exist, there is no auto-switch to it. Switching to `entity_id` still works. Can be a [template](#templates). |
-| `priority_name` | string | Optional | the player's friendly name | The label for the priority player. |
-| `discover` | boolean | Optional | `true` | `true` lists every Music Assistant player (recognised by their `mass_player_type` / `active_queue` attributes) and ignores `media_players`. `false` lists only `media_players`. |
-| `media_players` | list | **Required** if `discover` is `false` | none | Players to offer when `discover` is `false`. Each entry can be a [template](#templates). The card shows an error if the list is empty. |
-| `config_entry_id` | string | Optional | auto | Music Assistant config entry ID. The card finds it itself; this is only a fallback for non-admin users, who cannot list config entries. |
-| `ma_url` | string | Optional | none | Music Assistant server address, for example `http://192.168.1.10:8095`. With `ma_token` it enables the [full queue view](#full-queue-view). |
-| `ma_token` | string | Optional | none | A Music Assistant API token. |
-| `template` | string or list | Optional | none | Name(s) of button-card templates in this dashboard, used as the source of `variables`. See [Templates](#templates). |
-| `variables` | object | Optional | none | Variables for use in templates. They override those from `template`. |
-| `glass` | boolean | Optional | `true` | The glass look: a translucent surface and rim on the card's tiles, and a sheen on the progress and volume fills, highlighted buttons, selected player, artwork and thumbnails. Set `false` for flat tiles. |
-| `always_show_volume` | boolean | Optional | `false` | Keep the volume percentage on the volume bar all the time. By default it shows while you drag the bar and fades five seconds after the level last changes. |
+| `entity_id` | string | Optional | none | The player that belongs to this screen. It appears as **This Device** in the player picker and is chosen when it starts playing. Can be a [template](#templates). |
+| `priority_player` | string | Optional | none | A player the card switches to whenever it starts playing, such as a whole-home speaker group. Leave it out and the card never switches to it automatically. You can still pick it by hand. Can be a [template](#templates). |
+| `priority_name` | string | Optional | the player's own name | The label shown for the priority player. |
+| `discover` | boolean | Optional | `true` | `true` lists every Music Assistant player and ignores `media_players`. `false` lists only the players in `media_players`. |
+| `media_players` | list | **Required** if `discover` is `false` | none | The players to offer when `discover` is `false`. Each entry can be a [template](#templates). The card shows an error if the list is empty. |
+| `config_entry_id` | string | Optional | found automatically | The Music Assistant entry ID. The card finds it by itself. Only fill this in if you use a non-admin account, which cannot look it up. |
+| `ma_url` | string | Optional | none | The address of your Music Assistant server, for example `http://192.168.1.10:8095`. Together with `ma_token` it turns on the [full queue view](#full-queue-view). |
+| `ma_token` | string | Optional | none | A Music Assistant access token. |
+| `glass` | boolean | Optional | `true` | The glass look: a see-through surface and edge on the tiles, and a soft shine on the progress and volume bars, the highlighted buttons, the selected player, the album art and the small pictures. Set `false` for plain tiles. |
+| `always_show_volume` | boolean | Optional | `false` | Keep the volume percentage showing on the volume bar instead of letting it fade out five seconds after the last change. |
+| `idle_image` | string | Optional | none | The address of a picture to show in the album art tile when there is no cover art (nothing playing, or no player), for example `/local/my-images/idle.png`. It is shown whole and centred, not cropped. |
 
-If neither `entity_id` nor a usable `priority_player` is set, the card shows the first available player (preferring one that is playing) until you pick another.
+If you set neither `entity_id` nor a usable `priority_player`, the card shows the first player it finds (preferring one that is playing) until you pick another.
 
 </details>
 
 <details>
 
-<summary><b>Without discovery</b></summary>
+<summary><b>Without automatic discovery</b></summary>
 
 ```yaml
 type: custom:touch-media-card
@@ -161,31 +155,23 @@ media_players:
 
 ## Templates
 
-`entity_id`, `priority_player` and each `media_players` entry may be a button-card style template:
+`entity_id`, `priority_player` and each entry in `media_players` can be a short `[[[ ]]]` template instead of a fixed name. The card works out the answer each time. This is useful when one dashboard is shown on several screens and each screen needs its own player.
 
 ```yaml
 type: custom:touch-media-card
-template: my_dashboard_template
-entity_id: '[[[ return variables.local_player ]]]'
-priority_player: '[[[ return variables.whole_home_audio ]]]'
+priority_name: Whole Home
+priority_player: '[[[ return states["input_text.whole_home_player"].state ]]]'
+entity_id: '[[[ return states["input_text.kitchen_display_player"].state ]]]'
+discover: true
 ```
 
-Inside `[[[ ]]]` you have `hass`, `states`, `user` and `variables`. A body without `return` is treated as a single expression. `variables` are merged from the button-card templates named in `template` (including the templates they use) and the card's own `variables`. This is how one dashboard can serve several displays: each display's template sets its own `local_player`. [Button-card](https://github.com/custom-cards/button-card) itself is not required, only the `button_card_templates` section of the dashboard config.
-
-You can also skip templates and set variables on the card:
-
-```yaml
-type: custom:touch-media-card
-variables:
-  local_player: media_player.kitchen_display
-entity_id: '[[[ return variables.local_player ]]]'
-```
+Inside the brackets you can use `hass`, `states` and `user`. If your template has no `return`, it is treated as a single expression. The card does not read anything else from your dashboard. Anything a template needs comes from Home Assistant itself or from your own dashboard.
 
 <br>
 
 ## Full queue view
 
-Home Assistant only exposes the current and next track of a queue. With `ma_url` and `ma_token` the card calls the Music Assistant server directly to list the whole queue and to play, move or remove items.
+Home Assistant only shows the song playing now and the next one. If you add `ma_url` and `ma_token`, the card talks to your Music Assistant server directly, so it can show the whole queue and let you play, move or remove songs.
 
 ```yaml
 type: custom:touch-media-card
@@ -194,36 +180,34 @@ ma_url: https://music.example.com
 ma_token: YOUR_TOKEN
 ```
 
-- The token is stored in the dashboard configuration, so anyone who can open the dashboard can read it. Create a token just for this card.
-- The request goes from the browser to the server, so the server must be reachable from the display and allow cross-origin requests (CORS) from your Home Assistant address. If it is behind a reverse proxy, add CORS headers for `/api` there.
-- Without these two options, or when the server cannot be reached, the card falls back to the current and next item.
+- The token is saved in your dashboard settings, so anyone who can open the dashboard can read it. Make a token just for this card.
+- The screen itself contacts the server, so the server must be reachable from the screen and must allow requests from your Home Assistant address (this is called CORS). If you use a reverse proxy, add the CORS settings for `/api` there.
+- Without these two options, or if the server cannot be reached, the card shows only the current and next song.
 
 <br>
 
 ## Styling
 
-The card uses your Home Assistant theme: `--ha-card-background` for surfaces, `--primary-color` for accents and `--primary-text-color` / `--secondary-text-color` for text. Override any of these on the card (for example with [card-mod](https://github.com/thomasloven/lovelace-card-mod)):
+The card follows your Home Assistant theme: `--ha-card-background` for tile backgrounds, `--primary-color` for highlights and `--primary-text-color` and `--secondary-text-color` for text. You can change any of the following colours and sizes in your theme or on the card (for example with [card-mod](https://github.com/thomasloven/lovelace-card-mod)):
 
-| Variable | Used for |
+| Name | What it changes |
 | --- | --- |
-| `--kiosk-surface` | Buttons, track info and sheet backgrounds |
-| `--kiosk-surface-edge` | Their box-shadow (default none) |
-| `--kiosk-accent` | Active buttons, slider fills, highlights |
+| `--kiosk-surface` | Background of buttons, song details and pop-up sheets |
+| `--kiosk-surface-edge` | Shadow around those tiles (none by default) |
+| `--kiosk-accent` | Active buttons, the filled part of the bars, and highlights |
 | `--kiosk-text-primary` / `--kiosk-text-secondary` | Text |
-| `--kiosk-background` | Background of the browser and sheets |
-| `--kiosk-viewport-content-height` | Card height (default 100% of its container, minimum 300px) |
-| `--kiosk-border-radius-12px` | Corner radius (default 12px) |
+| `--kiosk-background` | Background of the browser and pop-up sheets |
+| `--kiosk-viewport-content-height` | Card height (by default the full height of the space it is in, at least 300px) |
+| `--kiosk-border-radius-12px` | Corner roundness (12px by default) |
 
-The variable names come from the Kiosk dashboard this card was first built for.
-
-The card fills its container's height, so place it where it has room, for example in a panel view or a full-height section. It stacks the artwork above the controls on portrait displays.
+The card fills the height of the space it is placed in, so give it room, for example in a panel view or a full-height section. On tall screens it puts the artwork above the controls.
 
 <br>
 
 ## Notes
 
-- Since version 2.0.0 the card no longer uses Bubble Card. Bubble Card can be removed if nothing else on your dashboards uses it.
-- Tested on Home Assistant with Music Assistant players, including a small touch display (about 800x400). Other setups may need tweaks.
+- From version 2.0.0 the card no longer needs Bubble Card. You can remove Bubble Card if nothing else on your dashboards uses it.
+- Tested on Home Assistant with Music Assistant players, including a small touch screen (about 800 by 400 pixels). Other setups may need small adjustments.
 
 <br>
 
