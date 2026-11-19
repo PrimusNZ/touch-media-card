@@ -1790,7 +1790,9 @@ button {
           row.append(select);
           if (option.move) {
             const move = cellFor(option.move);
-            move.style.flex = '0 0 38%';
+            // Player and Move queue split the row 50/50.
+            move.style.flex = '1 1 0';
+            move.style.minWidth = '0';
             row.append(move);
           }
           return row;
